@@ -10,6 +10,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
@@ -63,6 +64,8 @@ class MainActivity : AppCompatActivity() {
     private var toneGenerator: ToneGenerator? = null
     private var livenessAttempts = 0
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var lastFaceSeenAt = 0L
+    private var processingGuard: Job? = null
 
     private val provisionDevice = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -201,6 +204,7 @@ class MainActivity : AppCompatActivity() {
         faceCamera?.close()
         biometricEngine.close()
         resultHideJob?.cancel()
+        processingGuard?.cancel()
         toneGenerator?.release()
         toneGenerator = null
         super.onDestroy()
@@ -212,10 +216,13 @@ class MainActivity : AppCompatActivity() {
             previewView = binding.cameraPreview,
             onFaceObserved = { observation ->
                 runOnUiThread {
-                    faceReady = observation.faceCount == 1
+                    val now = SystemClock.elapsedRealtime()
+                    if (observation.faceCount == 1) lastFaceSeenAt = now
+                    val withinGrace = lastFaceSeenAt > 0 && now - lastFaceSeenAt <= FACE_GRACE_MS
+                    faceReady = observation.faceCount == 1 || withinGrace
                     if (!processing) {
                         binding.faceStatus.setText(
-                            if (observation.faceCount == 1) R.string.face_ready else R.string.no_face,
+                            if (faceReady) R.string.face_ready else R.string.no_face,
                         )
                     }
                     processChallenge(observation)
@@ -248,6 +255,10 @@ class MainActivity : AppCompatActivity() {
             binding.checkInButton.isEnabled = false
             binding.checkOutButton.isEnabled = false
             binding.faceStatus.setText(R.string.authorization_expired)
+        }
+        if (!processing) {
+            processingGuard?.cancel()
+            processingGuard = null
         }
         updateEngineStatus()
     }
@@ -314,6 +325,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun startProcessingGuard() {
+        processingGuard?.cancel()
+        processingGuard = lifecycleScope.launch {
+            delay(CAPTURE_TIMEOUT_MS)
+            if (processing) {
+                processing = false
+                activeChallenge = null
+                pendingDirection = null
+                updateButtons()
+                showResult(ResultKind.WARNING, R.string.challenge_timeout)
+            }
+        }
+    }
+
     private fun scheduleBlinkFallback(challenge: ActiveLivenessChallenge) {
         if (blinkFallbackScheduled) return
         blinkFallbackScheduled = true
@@ -325,6 +350,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun captureForRecognition(direction: AttendanceDirection) {
         binding.faceStatus.setText(R.string.recognizing)
+        startProcessingGuard()
         faceCamera?.capture(
             onSuccess = { bitmap ->
                 lifecycleScope.launch {
@@ -637,5 +663,7 @@ class MainActivity : AppCompatActivity() {
         const val SELF_REGISTRATION_VISIBLE_MS = 15_000L
         const val MAX_LIVENESS_ATTEMPTS = 2
         const val SYNC_REFRESH_DELAY_MS = 2_500L
+        const val FACE_GRACE_MS = 1_500L
+        const val CAPTURE_TIMEOUT_MS = 15_000L
     }
 }
