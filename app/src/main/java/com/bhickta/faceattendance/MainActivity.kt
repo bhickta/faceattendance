@@ -34,13 +34,11 @@ import com.bhickta.faceattendance.vision.ActiveLivenessChallenge
 import com.bhickta.faceattendance.vision.ChallengeUpdate
 import com.bhickta.faceattendance.vision.FaceCamera
 import com.bhickta.faceattendance.vision.FaceObservation
-import com.bhickta.faceattendance.vision.HeadTurnDirection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -162,9 +160,7 @@ class MainActivity : AppCompatActivity() {
         pendingDirection = direction
         blinkFallbackScheduled = false
         hideResult()
-        val challenge = ActiveLivenessChallenge(
-            if (Random.nextBoolean()) HeadTurnDirection.LEFT else HeadTurnDirection.RIGHT,
-        )
+        val challenge = ActiveLivenessChallenge()
         activeChallenge = challenge
         updateButtons()
         binding.faceStatus.setText(R.string.look_straight)
@@ -181,7 +177,7 @@ class MainActivity : AppCompatActivity() {
     private fun processChallenge(observation: FaceObservation) {
         val challenge = activeChallenge ?: return
         when (
-            val update = challenge.observe(
+            challenge.observe(
                 observation.faceCount,
                 observation.yawDegrees,
                 observation.eyesOpenProbability,
@@ -193,13 +189,6 @@ class MainActivity : AppCompatActivity() {
                 scheduleBlinkFallback(challenge)
             }
             ChallengeUpdate.WaitingForBlink -> Unit
-            is ChallengeUpdate.RequestTurn -> binding.faceStatus.setText(
-                if (update.direction == HeadTurnDirection.LEFT) R.string.turn_head_left
-                else R.string.turn_head_right,
-            )
-            ChallengeUpdate.WaitingForTurn -> Unit
-            ChallengeUpdate.RequestNeutralAfterTurn -> binding.faceStatus.setText(R.string.look_straight)
-            ChallengeUpdate.WaitingForReturn -> Unit
             ChallengeUpdate.Passed -> {
                 val direction = pendingDirection ?: return
                 activeChallenge = null

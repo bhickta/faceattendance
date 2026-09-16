@@ -6,8 +6,6 @@
     <string name="face_ready">चेहरा मिला — अंदर या बाहर चुनें</string>
     <string name="look_straight">कैमरे की ओर सीधा देखें</string>
     <string name="blink_now">जारी रखने के लिए एक बार पलक झपकाएँ</string>
-    <string name="turn_head_left">अपना सिर बाईं ओर घुमाएँ</string>
-    <string name="turn_head_right">अपना सिर दाईं ओर घुमाएँ</string>
     <string name="not_device_owner">डेवलपमेंट मोड: यह ऐप डिवाइस ओनर नहीं है</string>
     <string name="device_owner_active">प्रबंधित कियोस्क मोड सक्रिय है</string>
     <string name="enroll">व्यक्ति का नामांकन</string>

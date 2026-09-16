@@ -55,9 +55,9 @@ uploaded. Tokens expire after 15 minutes and can be used once.
 
 ## 4. Attendance
 
-The employee positions one face in view, selects **Check in** or **Check out**, looks straight, follows
-the randomized head-turn instruction, and returns to center. Accepted punches are written to the
-local immutable ledger immediately and synchronized to ERPNext when connectivity is available.
+The employee positions one face in view, selects **Check in** or **Check out**, looks straight and
+blinks once. Accepted punches are written to the local immutable ledger immediately and synchronized
+to ERPNext when connectivity is available.
 
 Repeat enrollment for additional employees. Templates with a branch are distributed only to kiosks
 assigned to that branch.
