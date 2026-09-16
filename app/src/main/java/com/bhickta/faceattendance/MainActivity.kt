@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyCompatInsets(binding.controlPanel)
+        applyCompatInsets(binding.root, applyTop = true, applyBottom = true)
         biometricEngine = BiometricEngineFactory.create(this)
         binding.checkInButton.setOnClickListener { punch(AttendanceDirection.IN) }
         binding.checkOutButton.setOnClickListener { punch(AttendanceDirection.OUT) }
@@ -73,9 +73,12 @@ class MainActivity : AppCompatActivity() {
 
         kioskController = KioskController(this)
         kioskController.applyDedicatedDevicePolicy()
+        val managedDevice = kioskController.isDeviceOwner
         binding.kioskStatus.setText(
-            if (kioskController.isDeviceOwner) R.string.device_owner_active
-            else R.string.not_device_owner,
+            if (managedDevice) R.string.device_owner_active else R.string.not_device_owner,
+        )
+        binding.kioskStatus.setTextColor(
+            ContextCompat.getColor(this, if (managedDevice) R.color.success else R.color.warning),
         )
 
         if (DeviceConfigurationStore(this).get() == null) {

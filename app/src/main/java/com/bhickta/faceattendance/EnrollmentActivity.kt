@@ -42,7 +42,7 @@ class EnrollmentActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityEnrollmentBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyCompatInsets(binding.enrollmentControls, includeIme = true)
+        applyCompatInsets(binding.root, applyTop = true, applyBottom = true, includeIme = true)
         biometricEngine = BiometricEngineFactory.create(this)
         binding.captureSampleButton.setOnClickListener { captureSample() }
         if (!biometricEngine.isEnrollmentReady) {

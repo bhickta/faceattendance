@@ -37,6 +37,8 @@
     <string name="attendance_save_failed">Attendance could not be saved — ask a supervisor for help</string>
     <string name="authorization_expired">Connect this kiosk to renew its attendance authorization</string>
     <string name="provision_device">Provision attendance kiosk</string>
+    <string name="provision_subtitle">Connect this device to your ERPNext site with the one-time token issued by an administrator.</string>
+    <string name="enroll_title">Enroll employee</string>
     <string name="server_url">Server URL (https://…)</string>
     <string name="activation_token">One-time activation token</string>
     <string name="activate">Activate kiosk</string>

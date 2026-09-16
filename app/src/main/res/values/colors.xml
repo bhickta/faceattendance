@@ -1,6 +1,19 @@
 <resources>
-    <color name="brand_primary">#1B5E55</color>
-    <color name="brand_primary_dark">#103D38</color>
-    <color name="surface_dark">#101817</color>
+    <color name="brand_primary">#2563EB</color>
+    <color name="brand_primary_dark">#1D4ED8</color>
+    <color name="brand_primary_light">#DBEAFE</color>
+
+    <color name="background">#F3F6FB</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_muted">#EEF3F9</color>
+    <color name="outline">#DCE4EE</color>
+
+    <color name="on_surface">#111C2E</color>
+    <color name="on_surface_muted">#5B6B80</color>
+
+    <color name="success">#15803D</color>
+    <color name="warning">#B45309</color>
+    <color name="error">#DC2626</color>
+
     <color name="white">#FFFFFF</color>
 </resources>
