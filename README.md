@@ -7,18 +7,34 @@ Android face-attendance kiosk starter for company-owned, fully managed devices.
 
 ## Current scope
 
-This repository establishes the device and camera foundation:
+This repository contains the Android kiosk and its separately packaged Frappe server app:
 
-- Native Kotlin Android application
+- Native Kotlin Android application (Java provides no material runtime benefit here)
 - CameraX front-camera preview
 - On-device ML Kit face detection
 - Device Owner receiver and dedicated-device restrictions
 - Lock Task kiosk mode
 - Launch after boot
 - HTTPS-only network policy
+- Room-backed immutable punch ledger
+- Hardware-backed device signing and encrypted API credentials
+- One-time kiosk activation and seven-day authorization lease
+- Signed, idempotent batch synchronization
+- Frappe HR Employee Checkin projection and signed webhook delivery
+- English and Hindi kiosk resources
 - CI build workflow
 
-Face detection is intentionally not presented as face recognition. A recognition model, enrollment workflow, liveness validation, encrypted template storage and attendance synchronization still need to be implemented before production use. See [the implementation roadmap](docs/ROADMAP.md).
+Face detection is intentionally not presented as face recognition. Debug builds contain a clearly
+labelled pipeline simulator. Release builds refuse biometric punches until a commercially licensed,
+qualified recognition/liveness engine is supplied through the `BiometricEngine` adapter. Enrollment,
+encrypted roster distribution, supervisor fallback, hardware qualification and field validation are
+still required before production use. See [the implementation roadmap](docs/ROADMAP.md).
+
+## Components
+
+- `app/`: Android kiosk application
+- `server/face_attendance/`: installable custom Frappe application requiring Frappe HR
+- `docs/`: architecture and implementation roadmap
 
 ## Development setup
 
@@ -64,6 +80,11 @@ adb shell dpm set-device-owner \
 Then launch the app. It allowlists itself for Lock Task mode and applies the starter dedicated-device restrictions.
 
 Production fleets should use Android Enterprise QR or zero-touch provisioning. Do not rely on ADB enrollment outside development.
+
+## Frappe server
+
+Install the custom server app on a Frappe private bench with Frappe HR. Installation and device
+setup notes are in [`server/face_attendance/README.md`](server/face_attendance/README.md).
 
 ## Safety and privacy
 

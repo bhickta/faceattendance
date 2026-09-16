@@ -7,7 +7,8 @@
 - [x] Device Owner receiver and Lock Task policy
 - [x] Boot launch and HTTPS-only configuration
 - [ ] Admin PIN with rate limiting and secure recovery
-- [ ] QR provisioning payload and managed configuration
+- [x] One-time server activation and hardware-backed device credentials
+- [ ] Android Enterprise QR provisioning payload and managed configuration
 
 ## Milestone 2 — recognition
 
@@ -27,12 +28,15 @@
 
 ## Milestone 4 — attendance and synchronization
 
-- [ ] Check-in/out policy and duplicate guard
-- [ ] Room-backed immutable event outbox
-- [ ] WorkManager upload and exponential backoff
-- [ ] Device authentication and idempotent HTTPS API
-- [ ] Server acknowledgements and audit history
-- [ ] Clock-tampering detection
+- [x] Explicit IN/OUT policy and local duplicate guard
+- [x] Room-backed immutable event outbox
+- [x] WorkManager upload and exponential backoff
+- [x] Device authentication, signatures and idempotent HTTPS ingestion
+- [x] Per-event acknowledgements and immutable server evidence
+- [x] Clock-tampering evidence and seven-day authorization lease
+- [x] Frappe HR Employee Checkin projection
+- [x] Signed generic HTTPS webhook outbox
+- [ ] Roster completeness and Frappe Last Sync of Checkin coordination
 
 ## Milestone 5 — production hardening
 
@@ -42,3 +46,10 @@
 - [ ] Privacy notice, retention policy and deletion workflow
 - [ ] Recognition and liveness evaluation across real devices and users
 - [ ] Accessibility and non-biometric fallback
+
+## Release blocker
+
+The current code is an engineering foundation, not a production biometric product. Production release
+is blocked until a licensed SDK is integrated and certified on selected devices, enrollments and
+templates are distributed securely, supervisor exceptions are implemented, and representative field
+testing meets the documented accuracy and liveness thresholds.
