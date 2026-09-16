@@ -91,7 +91,7 @@ def _embed(image, index):
     height, width = image.shape[:2]
     detector = _detector()
     detector.setInputSize((width, height))
-    _, faces = detector.detect(image)
+    faces = detector.detect(image)[1]
     if faces is None or len(faces) != 1:
         frappe.throw(
             _("Photo {0} must contain exactly one face").format(index + 1)
