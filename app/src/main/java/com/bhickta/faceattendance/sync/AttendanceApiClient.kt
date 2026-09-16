@@ -6,6 +6,7 @@ import com.bhickta.faceattendance.storage.AttendanceEventEntity
 import com.bhickta.faceattendance.vision.BiometricRoster
 import com.bhickta.faceattendance.vision.BiometricRosterStore
 import com.bhickta.faceattendance.vision.FaceTemplate
+import com.bhickta.faceattendance.vision.OfflineBiometricEngine
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -35,6 +36,12 @@ data class SubmissionResult(
 data class RosterResult(
     val changed: Boolean,
     val roster: BiometricRoster?,
+)
+
+data class SelfRegistrationResult(
+    val status: String,
+    val employeeName: String?,
+    val registration: String?,
 )
 
 class AttendanceApiClient(
@@ -89,6 +96,35 @@ class AttendanceApiClient(
                     )
                 },
             ),
+        )
+    }
+
+    fun submitSelfRegistration(
+        fullName: String,
+        phone: String?,
+        direction: String,
+        capturedAtEpochMillis: Long,
+        sampleCount: Int,
+        embedding: FloatArray,
+    ): SelfRegistrationResult {
+        val body = JSONObject().apply {
+            put("schema_version", 1)
+            put("device_id", configuration.deviceId)
+            put("full_name", fullName)
+            if (!phone.isNullOrBlank()) put("phone", phone.trim())
+            put("direction", direction)
+            put("captured_at", Instant.ofEpochMilli(capturedAtEpochMillis).toString())
+            put("sample_count", sampleCount)
+            put("embedding", BiometricRosterStore.encodeEmbedding(embedding))
+            put("model_version", OfflineBiometricEngine.MODEL_VERSION)
+            put("consent_confirmed", true)
+        }.toString().toByteArray(Charsets.UTF_8)
+        val response = post("submit_self_registration", body)
+        val payload = response.optJSONObject("message") ?: response
+        return SelfRegistrationResult(
+            status = payload.optString("status"),
+            employeeName = payload.optString("employee_name").takeIf(String::isNotBlank),
+            registration = payload.optString("registration").takeIf(String::isNotBlank),
         )
     }
 

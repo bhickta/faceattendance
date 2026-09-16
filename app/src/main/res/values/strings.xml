@@ -49,4 +49,19 @@
     <string name="activating">Activating securely…</string>
     <string name="activation_failed">Activation failed: %1$s</string>
     <string name="device_not_provisioned">This kiosk must be provisioned by an administrator</string>
+    <string name="register_new_employee">Register as new employee</string>
+    <string name="self_registration_title">Register as new employee</string>
+    <string name="self_registration_name">Full name</string>
+    <string name="self_registration_phone">Phone (optional)</string>
+    <string name="self_registration_consent">I consent to biometric enrollment for attendance</string>
+    <string name="self_registration_capture">Capture face and submit</string>
+    <string name="self_registration_position">Position one face in the camera</string>
+    <string name="self_registration_consent_required">Confirm consent to continue</string>
+    <string name="self_registration_name_required">Enter your full name</string>
+    <string name="self_registration_saving">Submitting registration for approval…</string>
+    <string name="self_registration_sent">Registration sent. An administrator will approve your account.</string>
+    <string name="self_registration_already">You are already registered as %1$s</string>
+    <string name="self_registration_pending">Your registration is already awaiting approval</string>
+    <string name="self_registration_failed">Registration failed: %1$s</string>
+    <string name="self_registration_sample_saved">Sample %1$d of %2$d saved</string>
 </resources>

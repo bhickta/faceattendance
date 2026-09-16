@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun handleBiometricResult(result: BiometricResult, direction: AttendanceDirection) {
         when (result) {
             is BiometricResult.Match -> savePunch(result, direction)
-            BiometricResult.NoMatch -> finishPunch(R.string.identity_not_found, ResultKind.ERROR)
+            BiometricResult.NoMatch -> offerSelfRegistration()
             BiometricResult.LivenessFailed -> finishPunch(R.string.liveness_failed, ResultKind.ERROR)
             is BiometricResult.Unavailable -> {
                 binding.faceStatus.text = getString(R.string.biometric_unavailable, result.reason)
@@ -254,6 +254,30 @@ class MainActivity : AppCompatActivity() {
                 updateButtons()
             }
         }
+    }
+
+    private fun offerSelfRegistration() {
+        val direction = pendingDirection ?: AttendanceDirection.IN
+        activeChallenge = null
+        pendingDirection = null
+        processing = false
+        updateButtons()
+        binding.faceStatus.setText(R.string.identity_not_found)
+        showResult(
+            ResultKind.WARNING,
+            R.string.identity_not_found,
+            null,
+            R.string.register_new_employee,
+            {
+                startActivity(
+                    Intent(this, SelfRegistrationActivity::class.java).putExtra(
+                        SelfRegistrationActivity.EXTRA_DIRECTION,
+                        direction.name,
+                    ),
+                )
+            },
+            SELF_REGISTRATION_VISIBLE_MS,
+        )
     }
 
     private suspend fun savePunch(match: BiometricResult.Match, direction: AttendanceDirection) {
@@ -322,7 +346,14 @@ class MainActivity : AppCompatActivity() {
 
     private enum class ResultKind { SUCCESS, WARNING, ERROR }
 
-    private fun showResult(kind: ResultKind, titleRes: Int, detail: CharSequence? = null) {
+    private fun showResult(
+        kind: ResultKind,
+        titleRes: Int,
+        detail: CharSequence? = null,
+        actionLabelRes: Int = 0,
+        onAction: (() -> Unit)? = null,
+        visibleMillis: Long = RESULT_VISIBLE_MS,
+    ) {
         val accentRes = when (kind) {
             ResultKind.SUCCESS -> R.color.success
             ResultKind.WARNING -> R.color.warning
@@ -351,6 +382,17 @@ class MainActivity : AppCompatActivity() {
             binding.resultDetail.visibility = View.VISIBLE
             binding.resultDetail.text = detail
         }
+        if (actionLabelRes != 0 && onAction != null) {
+            binding.resultAction.visibility = View.VISIBLE
+            binding.resultAction.setText(actionLabelRes)
+            binding.resultAction.setOnClickListener {
+                hideResult()
+                onAction()
+            }
+        } else {
+            binding.resultAction.visibility = View.GONE
+            binding.resultAction.setOnClickListener(null)
+        }
 
         binding.resultCard.animate().cancel()
         binding.resultCard.visibility = View.VISIBLE
@@ -364,7 +406,7 @@ class MainActivity : AppCompatActivity() {
 
         resultHideJob?.cancel()
         resultHideJob = lifecycleScope.launch {
-            delay(RESULT_VISIBLE_MS)
+            delay(visibleMillis)
             binding.resultCard.animate().alpha(0f).setDuration(220L).withEndAction {
                 binding.resultCard.visibility = View.GONE
             }.start()
@@ -408,5 +450,6 @@ class MainActivity : AppCompatActivity() {
         const val ACTIVE_CHALLENGE_TIMEOUT_MS = 25_000L
         const val BLINK_FALLBACK_MS = 8_000L
         const val RESULT_VISIBLE_MS = 4_000L
+        const val SELF_REGISTRATION_VISIBLE_MS = 15_000L
     }
 }

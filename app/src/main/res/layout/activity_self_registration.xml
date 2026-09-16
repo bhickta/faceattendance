@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:id="@+id/selfRegistrationBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/self_registration_title"
+            android:textColor="@color/on_surface"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.FaceAttendance.Card"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:clipToOutline="true"
+        app:layout_constraintBottom_toTopOf="@id/selfRegistrationControls"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/selfRegistrationBar">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/selfRegistrationCamera"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:implementationMode="compatible"
+            app:scaleType="fillCenter" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:id="@+id/selfRegistrationControls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="20dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/self_registration_name"
+            app:boxCornerRadiusBottomEnd="14dp"
+            app:boxCornerRadiusBottomStart="14dp"
+            app:boxCornerRadiusTopEnd="14dp"
+            app:boxCornerRadiusTopStart="14dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/fullName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="name"
+                android:inputType="textPersonName" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:hint="@string/self_registration_phone"
+            app:boxCornerRadiusBottomEnd="14dp"
+            app:boxCornerRadiusBottomStart="14dp"
+            app:boxCornerRadiusTopEnd="14dp"
+            app:boxCornerRadiusTopStart="14dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/phone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="phone"
+                android:inputType="phone" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/consent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/self_registration_consent"
+            android:textColor="@color/on_surface"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/selfRegistrationStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/self_registration_position"
+            android:textColor="@color/on_surface"
+            android:textSize="15sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/selfRegistrationCapture"
+            style="@style/Widget.FaceAttendance.Button"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="14dp"
+            android:enabled="false"
+            android:text="@string/self_registration_capture" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

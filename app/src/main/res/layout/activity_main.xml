@@ -125,6 +125,20 @@
                     android:layout_marginTop="2dp"
                     android:textColor="@color/on_surface_muted"
                     android:textSize="14sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/resultAction"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="-8dp"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:textAllCaps="false"
+                    android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
