@@ -18,6 +18,7 @@
     <string name="capture_failed">कैमरा चित्र नहीं ले सका — फिर प्रयास करें</string>
     <string name="duplicate_punch">पहले ही सुरक्षित है — उसी दिशा के लिए थोड़ा रुकें</string>
     <string name="attendance_save_failed">उपस्थिति सुरक्षित नहीं हुई — पर्यवेक्षक से सहायता लें</string>
+    <string name="authorization_expired">उपस्थिति अनुमति नवीनीकृत करने के लिए कियोस्क को इंटरनेट से जोड़ें</string>
     <string name="provision_device">उपस्थिति कियोस्क सक्रिय करें</string>
     <string name="server_url">सर्वर URL (https://…)</string>
     <string name="activation_token">एक बार उपयोग होने वाला सक्रियण टोकन</string>

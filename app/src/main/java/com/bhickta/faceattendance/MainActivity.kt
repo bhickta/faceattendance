@@ -16,6 +16,7 @@ import com.bhickta.faceattendance.attendance.DeviceAssignment
 import com.bhickta.faceattendance.attendance.TimestampConfidence
 import com.bhickta.faceattendance.databinding.ActivityMainBinding
 import com.bhickta.faceattendance.device.DeviceConfigurationStore
+import com.bhickta.faceattendance.device.ClockTrust
 import com.bhickta.faceattendance.device.KioskController
 import com.bhickta.faceattendance.storage.AttendanceDatabase
 import com.bhickta.faceattendance.storage.DuplicatePunchException
@@ -90,8 +91,8 @@ class MainActivity : AppCompatActivity() {
             onFaceCountChanged = { count ->
                 runOnUiThread {
                     faceReady = count == 1
-                    updateButtons()
                     binding.faceStatus.setText(if (count == 1) R.string.face_ready else R.string.no_face)
+                    updateButtons()
                 }
             },
         ).also { it.start() }
@@ -114,6 +115,11 @@ class MainActivity : AppCompatActivity() {
         binding.checkOutButton.visibility = if (mode == "IN") View.GONE else View.VISIBLE
         binding.checkInButton.isEnabled = enabled
         binding.checkOutButton.isEnabled = enabled
+        if (configuration != null && !ClockTrust.hasValidAuthorization(configuration)) {
+            binding.checkInButton.isEnabled = false
+            binding.checkOutButton.isEnabled = false
+            binding.faceStatus.setText(R.string.authorization_expired)
+        }
         if (BuildConfig.DEBUG && biometricEngine.isReady) {
             binding.kioskStatus.setText(R.string.debug_biometric_warning)
         }
@@ -164,9 +170,11 @@ class MainActivity : AppCompatActivity() {
             finishPunch(R.string.device_not_provisioned)
             return
         }
-        val confidence = if (
-            Settings.Global.getInt(contentResolver, Settings.Global.AUTO_TIME, 0) == 1
-        ) TimestampConfidence.TRUSTED else TimestampConfidence.CLOCK_CHANGED
+        if (!ClockTrust.hasValidAuthorization(configuration)) {
+            finishPunch(R.string.authorization_expired)
+            return
+        }
+        val confidence = ClockTrust.timestampConfidence(contentResolver, configuration)
         val bootCount = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, -1)
         val outcome = runCatching {
             withContext(Dispatchers.IO) {

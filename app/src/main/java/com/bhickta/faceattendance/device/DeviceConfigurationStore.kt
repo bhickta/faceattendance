@@ -19,6 +19,9 @@ data class DeviceConfiguration(
     val gateId: String,
     val directionMode: String,
     val assignmentVersion: String,
+    val serverTimeEpochMillis: Long,
+    val elapsedAtServerTimeMillis: Long,
+    val authorizationExpiresAtEpochMillis: Long,
 )
 
 class DeviceConfigurationStore(context: Context) {
@@ -37,6 +40,16 @@ class DeviceConfigurationStore(context: Context) {
                 gateId = requireNotNull(preferences.getString("gate_id", null)),
                 directionMode = requireNotNull(preferences.getString("direction_mode", null)),
                 assignmentVersion = requireNotNull(preferences.getString("assignment_version", null)),
+                serverTimeEpochMillis = preferences.getLong("server_time_epoch_millis", -1).also {
+                    require(it >= 0)
+                },
+                elapsedAtServerTimeMillis = preferences.getLong("elapsed_at_server_time_millis", -1).also {
+                    require(it >= 0)
+                },
+                authorizationExpiresAtEpochMillis = preferences.getLong(
+                    "authorization_expires_at_epoch_millis",
+                    -1,
+                ).also { require(it >= 0) },
             )
         }.getOrNull()
     }
@@ -52,6 +65,9 @@ class DeviceConfigurationStore(context: Context) {
             .putString("gate_id", configuration.gateId)
             .putString("direction_mode", configuration.directionMode)
             .putString("assignment_version", configuration.assignmentVersion)
+            .putLong("server_time_epoch_millis", configuration.serverTimeEpochMillis)
+            .putLong("elapsed_at_server_time_millis", configuration.elapsedAtServerTimeMillis)
+            .putLong("authorization_expires_at_epoch_millis", configuration.authorizationExpiresAtEpochMillis)
             .apply()
     }
 

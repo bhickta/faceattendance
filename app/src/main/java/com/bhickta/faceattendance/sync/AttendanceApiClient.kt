@@ -15,11 +15,25 @@ data class EventAcknowledgement(
     val reason: String?,
 )
 
+data class ServerState(
+    val serverTimeEpochMillis: Long,
+    val authorizationExpiresAtEpochMillis: Long,
+    val branchId: String?,
+    val gateId: String?,
+    val directionMode: String?,
+    val assignmentVersion: String?,
+)
+
+data class SubmissionResult(
+    val acknowledgements: List<EventAcknowledgement>,
+    val serverState: ServerState,
+)
+
 class AttendanceApiClient(
     private val configuration: DeviceConfiguration,
     private val keyManager: DeviceKeyManager,
 ) {
-    fun submit(events: List<AttendanceEventEntity>): List<EventAcknowledgement> {
+    fun submit(events: List<AttendanceEventEntity>): SubmissionResult {
         require(events.isNotEmpty())
         require(events.size <= MAX_BATCH_SIZE)
 
@@ -29,8 +43,21 @@ class AttendanceApiClient(
             put("events", JSONArray(events.map(::eventJson)))
         }.toString().toByteArray(Charsets.UTF_8)
 
+        val response = post("submit_events", body)
+        return SubmissionResult(parseAcknowledgements(response), parseServerState(response))
+    }
+
+    fun syncState(): ServerState {
+        val body = JSONObject().apply {
+            put("schema_version", 1)
+            put("device_id", configuration.deviceId)
+        }.toString().toByteArray(Charsets.UTF_8)
+        return parseServerState(post("sync_state", body))
+    }
+
+    private fun post(method: String, body: ByteArray): JSONObject {
         val connection = URL(
-            "${configuration.baseUrl}/api/method/face_attendance.api.v1.submit_events",
+            "${configuration.baseUrl}/api/method/face_attendance.api.v1.$method",
         ).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "POST"
@@ -49,7 +76,7 @@ class AttendanceApiClient(
             if (connection.responseCode !in 200..299) {
                 throw ApiException(connection.responseCode, connection.errorStream?.bufferedReader()?.readText())
             }
-            parseAcknowledgements(connection.inputStream.bufferedReader().readText())
+            JSONObject(connection.inputStream.bufferedReader().readText())
         } finally {
             connection.disconnect()
         }
@@ -76,8 +103,7 @@ class AttendanceApiClient(
         put("roster_version", event.rosterVersion)
     }
 
-    private fun parseAcknowledgements(response: String): List<EventAcknowledgement> {
-        val root = JSONObject(response)
+    private fun parseAcknowledgements(root: JSONObject): List<EventAcknowledgement> {
         val payload = root.optJSONObject("message") ?: root
         val results = payload.getJSONArray("results")
         return List(results.length()) { index ->
@@ -88,6 +114,18 @@ class AttendanceApiClient(
                 reason = item.optString("reason").takeIf(String::isNotBlank),
             )
         }
+    }
+
+    private fun parseServerState(root: JSONObject): ServerState {
+        val payload = root.optJSONObject("message") ?: root
+        return ServerState(
+            serverTimeEpochMillis = payload.getLong("server_time_epoch_millis"),
+            authorizationExpiresAtEpochMillis = payload.getLong("authorization_expires_at_epoch_millis"),
+            branchId = payload.optString("branch_id").takeIf(String::isNotBlank),
+            gateId = payload.optString("gate_id").takeIf(String::isNotBlank),
+            directionMode = payload.optString("direction_mode").takeIf(String::isNotBlank),
+            assignmentVersion = payload.optString("assignment_version").takeIf(String::isNotBlank),
+        )
     }
 
     companion object {

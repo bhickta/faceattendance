@@ -1,6 +1,7 @@
 package com.bhickta.faceattendance.sync
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.bhickta.faceattendance.device.DeviceConfigurationStore
@@ -20,13 +21,26 @@ class AttendanceSyncWorker(
             ?: return@withContext Result.success()
         val dao = AttendanceDatabase.get(applicationContext).attendanceEventDao()
         val events = dao.pending(AttendanceApiClient.MAX_BATCH_SIZE)
-        if (events.isEmpty()) return@withContext Result.success()
-
-        dao.recordAttempt(events.map { it.eventId }, System.currentTimeMillis())
         try {
-            val acknowledgements = AttendanceApiClient(configuration, DeviceKeyManager()).submit(events)
+            val client = AttendanceApiClient(configuration, DeviceKeyManager())
+            val submission = if (events.isEmpty()) null else {
+                dao.recordAttempt(events.map { it.eventId }, System.currentTimeMillis())
+                client.submit(events)
+            }
+            val serverState = submission?.serverState ?: client.syncState()
+            DeviceConfigurationStore(applicationContext).save(
+                configuration.copy(
+                    branchId = serverState.branchId ?: configuration.branchId,
+                    gateId = serverState.gateId ?: configuration.gateId,
+                    directionMode = serverState.directionMode ?: configuration.directionMode,
+                    assignmentVersion = serverState.assignmentVersion ?: configuration.assignmentVersion,
+                    serverTimeEpochMillis = serverState.serverTimeEpochMillis,
+                    elapsedAtServerTimeMillis = SystemClock.elapsedRealtime(),
+                    authorizationExpiresAtEpochMillis = serverState.authorizationExpiresAtEpochMillis,
+                ),
+            )
             val now = System.currentTimeMillis()
-            acknowledgements.forEach { acknowledgement ->
+            submission?.acknowledgements?.forEach { acknowledgement ->
                 val state = when (acknowledgement.status) {
                     "accepted", "duplicate" -> SyncState.ACKNOWLEDGED
                     "quarantined" -> SyncState.QUARANTINED

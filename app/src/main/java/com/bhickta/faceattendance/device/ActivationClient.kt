@@ -1,5 +1,6 @@
 package com.bhickta.faceattendance.device
 
+import android.os.SystemClock
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -40,6 +41,9 @@ class ActivationClient(private val keyManager: DeviceKeyManager = DeviceKeyManag
                 gateId = result.getString("gate_id"),
                 directionMode = result.getString("direction_mode"),
                 assignmentVersion = result.getString("assignment_version"),
+                serverTimeEpochMillis = result.getLong("server_time_epoch_millis"),
+                elapsedAtServerTimeMillis = SystemClock.elapsedRealtime(),
+                authorizationExpiresAtEpochMillis = result.getLong("authorization_expires_at_epoch_millis"),
             )
         } finally {
             connection.disconnect()
