@@ -18,8 +18,11 @@ object ClockTrust {
         return configuration.serverTimeEpochMillis + elapsed
     }
 
-    fun hasValidAuthorization(configuration: DeviceConfiguration): Boolean =
-        expectedServerTime(configuration)?.let { it <= configuration.authorizationExpiresAtEpochMillis } == true
+    fun hasValidAuthorization(
+        configuration: DeviceConfiguration,
+        elapsedRealtime: Long = SystemClock.elapsedRealtime(),
+    ): Boolean = expectedServerTime(configuration, elapsedRealtime)
+        ?.let { it <= configuration.authorizationExpiresAtEpochMillis } == true
 
     fun timestampConfidence(
         contentResolver: ContentResolver,
