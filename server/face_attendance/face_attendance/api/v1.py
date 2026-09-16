@@ -206,7 +206,11 @@ def _verify_signature(public_key_base64, raw_body, signature_base64):
         public_key = serialization.load_der_public_key(base64.b64decode(public_key_base64, validate=True))
         if not isinstance(public_key, ec.EllipticCurvePublicKey):
             raise ValueError("Unexpected key type")
-        public_key.verify(base64.b64decode(signature_base64, validate=True), raw_body, ec.ECDSA(hashes.SHA256()))
+        public_key.verify(
+            base64.b64decode(signature_base64, validate=True),
+            raw_body,
+            ec.ECDSA(hashes.SHA256()),
+        )
     except (InvalidSignature, TypeError, ValueError):
         frappe.throw(_("Invalid device signature"), frappe.AuthenticationError)
 
@@ -302,7 +306,8 @@ def _captured_at(value):
 
 
 def _managed_attendance():
-    return frappe.db.get_single_value("Face Attendance Settings", "attendance_authority") != "External Authority"
+    authority = frappe.db.get_single_value("Face Attendance Settings", "attendance_authority")
+    return authority != "External Authority"
 
 
 def _create_checkin(event):
