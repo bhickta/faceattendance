@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Face Attendance</string>
+    <string name="device_admin_description">Controls this company-owned attendance kiosk.</string>
+    <string name="camera_permission_required">Camera permission is required to identify attendees.</string>
+    <string name="camera_starting">Starting camera…</string>
+    <string name="no_face">Position one face inside the camera view</string>
+    <string name="face_ready">Face detected — recognition model not configured</string>
+    <string name="not_device_owner">Development mode: this app is not Device Owner</string>
+    <string name="device_owner_active">Managed kiosk mode active</string>
+    <string name="enroll">Enroll person</string>
+    <string name="check_in">Check in</string>
+</resources>
