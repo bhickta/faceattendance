@@ -28,6 +28,7 @@ class FaceCamera(
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
             .setMinFaceSize(0.25f)
             .build(),
     )
@@ -58,10 +59,18 @@ class FaceCamera(
                 val input = InputImage.fromMediaImage(mediaImage, proxy.imageInfo.rotationDegrees)
                 detector.process(input)
                     .addOnSuccessListener { faces ->
+                        val face = faces.singleOrNull()
+                        val left = face?.leftEyeOpenProbability
+                        val right = face?.rightEyeOpenProbability
                         onFaceObserved(
                             FaceObservation(
                                 faceCount = faces.size,
-                                yawDegrees = faces.singleOrNull()?.headEulerAngleY,
+                                yawDegrees = face?.headEulerAngleY,
+                                eyesOpenProbability = if (left != null && right != null) {
+                                    minOf(left, right)
+                                } else {
+                                    null
+                                },
                             ),
                         )
                     }
@@ -127,4 +136,5 @@ class FaceCamera(
 data class FaceObservation(
     val faceCount: Int,
     val yawDegrees: Float?,
+    val eyesOpenProbability: Float? = null,
 )

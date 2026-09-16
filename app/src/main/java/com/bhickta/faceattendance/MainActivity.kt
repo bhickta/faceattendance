@@ -3,7 +3,12 @@ package com.bhickta.faceattendance
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,6 +36,7 @@ import com.bhickta.faceattendance.vision.FaceCamera
 import com.bhickta.faceattendance.vision.FaceObservation
 import com.bhickta.faceattendance.vision.HeadTurnDirection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -45,6 +51,9 @@ class MainActivity : AppCompatActivity() {
     private var processing = false
     private var activeChallenge: ActiveLivenessChallenge? = null
     private var pendingDirection: AttendanceDirection? = null
+    private var blinkFallbackScheduled = false
+    private var resultHideJob: Job? = null
+    private var toneGenerator: ToneGenerator? = null
 
     private val provisionDevice = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -97,6 +106,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         faceCamera?.close()
         biometricEngine.close()
+        resultHideJob?.cancel()
+        toneGenerator?.release()
+        toneGenerator = null
         super.onDestroy()
     }
 
@@ -148,6 +160,8 @@ class MainActivity : AppCompatActivity() {
         if (processing || !faceReady) return
         processing = true
         pendingDirection = direction
+        blinkFallbackScheduled = false
+        hideResult()
         val challenge = ActiveLivenessChallenge(
             if (Random.nextBoolean()) HeadTurnDirection.LEFT else HeadTurnDirection.RIGHT,
         )
@@ -166,8 +180,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun processChallenge(observation: FaceObservation) {
         val challenge = activeChallenge ?: return
-        when (val update = challenge.observe(observation.faceCount, observation.yawDegrees)) {
+        when (
+            val update = challenge.observe(
+                observation.faceCount,
+                observation.yawDegrees,
+                observation.eyesOpenProbability,
+            )
+        ) {
             ChallengeUpdate.WaitingForNeutral -> binding.faceStatus.setText(R.string.look_straight)
+            ChallengeUpdate.RequestBlink -> {
+                binding.faceStatus.setText(R.string.blink_now)
+                scheduleBlinkFallback(challenge)
+            }
+            ChallengeUpdate.WaitingForBlink -> Unit
             is ChallengeUpdate.RequestTurn -> binding.faceStatus.setText(
                 if (update.direction == HeadTurnDirection.LEFT) R.string.turn_head_left
                 else R.string.turn_head_right,
@@ -181,6 +206,15 @@ class MainActivity : AppCompatActivity() {
                 pendingDirection = null
                 captureForRecognition(direction)
             }
+        }
+    }
+
+    private fun scheduleBlinkFallback(challenge: ActiveLivenessChallenge) {
+        if (blinkFallbackScheduled) return
+        blinkFallbackScheduled = true
+        lifecycleScope.launch {
+            delay(BLINK_FALLBACK_MS)
+            if (activeChallenge === challenge) challenge.skipBlink()
         }
     }
 
@@ -200,6 +234,7 @@ class MainActivity : AppCompatActivity() {
             onFailure = {
                 runOnUiThread {
                     binding.faceStatus.setText(R.string.capture_failed)
+                    showResult(ResultKind.ERROR, R.string.capture_failed)
                     processing = false
                     updateButtons()
                 }
@@ -210,10 +245,11 @@ class MainActivity : AppCompatActivity() {
     private suspend fun handleBiometricResult(result: BiometricResult, direction: AttendanceDirection) {
         when (result) {
             is BiometricResult.Match -> savePunch(result, direction)
-            BiometricResult.NoMatch -> finishPunch(R.string.identity_not_found)
-            BiometricResult.LivenessFailed -> finishPunch(R.string.liveness_failed)
+            BiometricResult.NoMatch -> finishPunch(R.string.identity_not_found, ResultKind.ERROR)
+            BiometricResult.LivenessFailed -> finishPunch(R.string.liveness_failed, ResultKind.ERROR)
             is BiometricResult.Unavailable -> {
                 binding.faceStatus.text = getString(R.string.biometric_unavailable, result.reason)
+                showResult(ResultKind.WARNING, R.string.biometric_unavailable, result.reason)
                 processing = false
                 updateButtons()
             }
@@ -223,11 +259,11 @@ class MainActivity : AppCompatActivity() {
     private suspend fun savePunch(match: BiometricResult.Match, direction: AttendanceDirection) {
         val configuration = DeviceConfigurationStore(this).get()
         if (configuration == null) {
-            finishPunch(R.string.device_not_provisioned)
+            finishPunch(R.string.device_not_provisioned, ResultKind.WARNING)
             return
         }
         if (!ClockTrust.hasValidAuthorization(configuration)) {
-            finishPunch(R.string.authorization_expired)
+            finishPunch(R.string.authorization_expired, ResultKind.WARNING)
             return
         }
         val confidence = ClockTrust.timestampConfidence(contentResolver, configuration)
@@ -252,29 +288,125 @@ class MainActivity : AppCompatActivity() {
         }
         outcome.onSuccess {
             SyncScheduler.requestNow(this)
-            binding.faceStatus.text = getString(
-                R.string.attendance_saved,
-                direction.name,
-                match.displayName,
-            )
-        }.onFailure {
+            val title = if (direction == AttendanceDirection.IN) {
+                R.string.result_check_in
+            } else {
+                R.string.result_check_out
+            }
             binding.faceStatus.setText(
-                if (it === DuplicatePunchException) R.string.duplicate_punch else R.string.attendance_save_failed,
+                getString(R.string.attendance_saved, direction.name, match.displayName),
             )
+            showResult(ResultKind.SUCCESS, title, match.displayName)
+        }.onFailure {
+            val duplicate = it === DuplicatePunchException
+            val message = if (duplicate) R.string.duplicate_punch else R.string.attendance_save_failed
+            binding.faceStatus.setText(message)
+            showResult(if (duplicate) ResultKind.WARNING else ResultKind.ERROR, message)
         }
         processing = false
         updateButtons()
     }
 
-    private fun finishPunch(message: Int) {
+    private fun finishPunch(
+        message: Int,
+        kind: ResultKind = ResultKind.ERROR,
+        detail: CharSequence? = null,
+    ) {
         activeChallenge = null
         pendingDirection = null
         binding.faceStatus.setText(message)
+        showResult(kind, message, detail)
         processing = false
         updateButtons()
     }
 
+    private enum class ResultKind { SUCCESS, WARNING, ERROR }
+
+    private fun showResult(kind: ResultKind, titleRes: Int, detail: CharSequence? = null) {
+        val accentRes = when (kind) {
+            ResultKind.SUCCESS -> R.color.success
+            ResultKind.WARNING -> R.color.warning
+            ResultKind.ERROR -> R.color.error
+        }
+        val backgroundRes = when (kind) {
+            ResultKind.SUCCESS -> R.color.result_success_background
+            ResultKind.WARNING -> R.color.result_warning_background
+            ResultKind.ERROR -> R.color.result_error_background
+        }
+        val accent = ContextCompat.getColor(this, accentRes)
+        binding.resultIcon.setImageResource(
+            when (kind) {
+                ResultKind.SUCCESS -> R.drawable.ic_check
+                ResultKind.WARNING -> R.drawable.ic_warning
+                ResultKind.ERROR -> R.drawable.ic_close
+            },
+        )
+        binding.resultIcon.backgroundTintList = ColorStateList.valueOf(accent)
+        binding.resultCard.setCardBackgroundColor(ContextCompat.getColor(this, backgroundRes))
+        binding.resultTitle.setText(titleRes)
+        binding.resultTitle.setTextColor(accent)
+        if (detail.isNullOrBlank()) {
+            binding.resultDetail.visibility = View.GONE
+        } else {
+            binding.resultDetail.visibility = View.VISIBLE
+            binding.resultDetail.text = detail
+        }
+
+        binding.resultCard.animate().cancel()
+        binding.resultCard.visibility = View.VISIBLE
+        binding.resultCard.alpha = 0f
+        binding.resultCard.scaleX = 0.96f
+        binding.resultCard.scaleY = 0.96f
+        binding.resultCard.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(160L).start()
+
+        playFeedbackTone(kind)
+        playFeedbackHaptic(kind)
+
+        resultHideJob?.cancel()
+        resultHideJob = lifecycleScope.launch {
+            delay(RESULT_VISIBLE_MS)
+            binding.resultCard.animate().alpha(0f).setDuration(220L).withEndAction {
+                binding.resultCard.visibility = View.GONE
+            }.start()
+        }
+    }
+
+    private fun hideResult() {
+        resultHideJob?.cancel()
+        resultHideJob = null
+        binding.resultCard.animate().cancel()
+        binding.resultCard.visibility = View.GONE
+    }
+
+    private fun playFeedbackTone(kind: ResultKind) {
+        runCatching {
+            val tone = toneGenerator
+                ?: ToneGenerator(AudioManager.STREAM_MUSIC, 90).also { toneGenerator = it }
+            tone.startTone(
+                when (kind) {
+                    ResultKind.SUCCESS -> ToneGenerator.TONE_PROP_ACK
+                    ResultKind.WARNING -> ToneGenerator.TONE_PROP_BEEP
+                    ResultKind.ERROR -> ToneGenerator.TONE_PROP_NACK
+                },
+                if (kind == ResultKind.SUCCESS) 180 else 320,
+            )
+        }
+    }
+
+    private fun playFeedbackHaptic(kind: ResultKind) {
+        val vibrator = getSystemService(Vibrator::class.java) ?: return
+        if (!vibrator.hasVibrator()) return
+        val effect = when (kind) {
+            ResultKind.SUCCESS -> VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE)
+            ResultKind.WARNING -> VibrationEffect.createOneShot(90, VibrationEffect.DEFAULT_AMPLITUDE)
+            ResultKind.ERROR -> VibrationEffect.createWaveform(longArrayOf(0, 60, 60, 60), -1)
+        }
+        runCatching { vibrator.vibrate(effect) }
+    }
+
     private companion object {
-        const val ACTIVE_CHALLENGE_TIMEOUT_MS = 7_000L
+        const val ACTIVE_CHALLENGE_TIMEOUT_MS = 25_000L
+        const val BLINK_FALLBACK_MS = 8_000L
+        const val RESULT_VISIBLE_MS = 4_000L
     }
 }

@@ -6,6 +6,7 @@
     <string name="no_face">Position one face inside the camera view</string>
     <string name="face_ready">Face detected — select check in or check out</string>
     <string name="look_straight">Look straight at the camera</string>
+    <string name="blink_now">Blink once to continue</string>
     <string name="turn_head_left">Turn your head to the left</string>
     <string name="turn_head_right">Turn your head to the right</string>
     <string name="not_device_owner">Development mode: this app is not Device Owner</string>
@@ -27,6 +28,9 @@
     <string name="biometric_model_unavailable">Offline biometric models could not be loaded</string>
     <string name="check_in">Check in</string>
     <string name="check_out">Check out</string>
+    <string name="result_check_in">Checked in</string>
+    <string name="result_check_out">Checked out</string>
+    <string name="result_saved_detail">%1$s · %2$s</string>
     <string name="recognizing">Checking identity and liveness…</string>
     <string name="attendance_saved">%1$s saved for %2$s</string>
     <string name="identity_not_found">Identity not found — ask a supervisor for help</string>

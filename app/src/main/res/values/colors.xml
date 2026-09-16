@@ -15,5 +15,9 @@
     <color name="warning">#B45309</color>
     <color name="error">#DC2626</color>
 
+    <color name="result_success_background">#E7F6EC</color>
+    <color name="result_warning_background">#FEF3E2</color>
+    <color name="result_error_background">#FDECEC</color>
+
     <color name="white">#FFFFFF</color>
 </resources>
