@@ -8,6 +8,16 @@
     <string name="device_owner_active">प्रबंधित कियोस्क मोड सक्रिय है</string>
     <string name="enroll">व्यक्ति का नामांकन</string>
     <string name="check_in">अंदर</string>
+    <string name="check_out">बाहर</string>
+    <string name="debug_biometric_warning">डेमो बायोमेट्रिक्स — उपस्थिति के लिए नहीं</string>
+    <string name="recognizing">पहचान और जीवंतता जाँची जा रही है…</string>
+    <string name="attendance_saved">%2$s के लिए %1$s सुरक्षित किया गया</string>
+    <string name="identity_not_found">पहचान नहीं मिली — पर्यवेक्षक से सहायता लें</string>
+    <string name="liveness_failed">जीवित उपस्थिति की पुष्टि नहीं हुई</string>
+    <string name="biometric_unavailable">बायोमेट्रिक सेवा उपलब्ध नहीं: %1$s</string>
+    <string name="capture_failed">कैमरा चित्र नहीं ले सका — फिर प्रयास करें</string>
+    <string name="duplicate_punch">पहले ही सुरक्षित है — उसी दिशा के लिए थोड़ा रुकें</string>
+    <string name="attendance_save_failed">उपस्थिति सुरक्षित नहीं हुई — पर्यवेक्षक से सहायता लें</string>
     <string name="provision_device">उपस्थिति कियोस्क सक्रिय करें</string>
     <string name="server_url">सर्वर URL (https://…)</string>
     <string name="activation_token">एक बार उपयोग होने वाला सक्रियण टोकन</string>

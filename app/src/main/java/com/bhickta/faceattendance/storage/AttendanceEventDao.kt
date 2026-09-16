@@ -20,11 +20,26 @@ abstract class AttendanceEventDao {
     @Query("UPDATE device_state SET nextSequence = :nextSequence, bootId = :bootId WHERE id = 1")
     protected abstract suspend fun updateState(nextSequence: Long, bootId: String)
 
+    @Query(
+        "SELECT capturedAtEpochMillis FROM attendance_events " +
+            "WHERE personId = :personId AND direction = :direction " +
+            "ORDER BY capturedAtEpochMillis DESC LIMIT 1",
+    )
+    protected abstract suspend fun lastPunchAt(personId: String, direction: String): Long?
+
     @Transaction
     open suspend fun insertWithNextSequence(
         bootId: String,
+        personId: String,
+        direction: String,
+        capturedAtEpochMillis: Long,
+        cooldownMillis: Long,
         create: (Long) -> AttendanceEventEntity,
     ): AttendanceEventEntity {
+        val lastPunchAt = lastPunchAt(personId, direction)
+        if (lastPunchAt != null && capturedAtEpochMillis - lastPunchAt < cooldownMillis) {
+            throw DuplicatePunchException
+        }
         val current = state() ?: DeviceStateEntity(nextSequence = 1, bootId = bootId).also {
             insertState(it)
         }
@@ -63,3 +78,5 @@ abstract class AttendanceEventDao {
     @Query("DELETE FROM attendance_events WHERE syncState = 'ACKNOWLEDGED' AND acknowledgedAtEpochMillis < :before")
     abstract suspend fun deleteAcknowledgedBefore(before: Long): Int
 }
+
+data object DuplicatePunchException : IllegalStateException("Duplicate punch during cooldown")

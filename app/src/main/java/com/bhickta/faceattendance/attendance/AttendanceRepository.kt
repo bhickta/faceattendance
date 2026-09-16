@@ -29,7 +29,13 @@ class AttendanceRepository(
         val offsetMinutes = ZoneId.systemDefault().rules
             .getOffset(Instant.ofEpochMilli(capturedAt)).totalSeconds / 60
 
-        return dao.insertWithNextSequence(bootId) { sequence ->
+        return dao.insertWithNextSequence(
+            bootId = bootId,
+            personId = evidence.personId,
+            direction = direction.name,
+            capturedAtEpochMillis = capturedAt,
+            cooldownMillis = DUPLICATE_COOLDOWN_MILLIS,
+        ) { sequence ->
             AttendanceEventEntity(
                 eventId = eventId(),
                 deviceSequence = sequence,
@@ -51,5 +57,9 @@ class AttendanceRepository(
                 rosterVersion = evidence.rosterVersion,
             )
         }
+    }
+
+    private companion object {
+        const val DUPLICATE_COOLDOWN_MILLIS = 30_000L
     }
 }

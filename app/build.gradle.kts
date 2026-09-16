@@ -45,8 +45,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "BIOMETRIC_ENGINE_CLASS",
+                "\"com.bhickta.faceattendance.vision.DemoBiometricEngine\"",
+            )
+        }
         release {
             isMinifyEnabled = true
+            buildConfigField("String", "BIOMETRIC_ENGINE_CLASS", "\"\"")
             signingConfigs.findByName("release")?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
