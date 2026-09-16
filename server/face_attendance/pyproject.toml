@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Offline-first face attendance device management for Frappe HR"
 authors = [{name = "Nishant Bhickta", email = "nishant.bhickta@gmail.com"}]
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42,<46", "requests>=2.32,<3"]
+dependencies = ["cryptography>=42,<51", "requests>=2.32,<3", "tzdata"]
 
 [tool.ruff]
 line-length = 110
