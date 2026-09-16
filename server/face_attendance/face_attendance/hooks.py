@@ -7,6 +7,8 @@ app_license = "MIT"
 
 required_apps = ["hrms"]
 
+doctype_js = {"Employee": "public/js/employee.js"}
+
 after_install = "face_attendance.setup.install.after_install"
 after_migrate = "face_attendance.setup.install.after_migrate"
 
