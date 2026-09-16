@@ -13,6 +13,20 @@ branch, gate and direction. Call `face_attendance.api.v1.create_provisioning_tok
 System Manager and enter the returned one-time token on the kiosk. Activation binds the
 Android signing key and rotates the restricted device user's API credentials.
 
+## Register an employee from a photograph
+
+A System Manager or HR Manager can enrol a face from the portal without using a kiosk:
+
+1. Open an Employee and set a unique `Biometric Person ID`.
+2. Click **Face Attendance → Register Face from Photo**.
+3. Upload one to ten front-facing photographs, confirm consent, choose a branch (leave it
+   blank to distribute the employee to every device) and register.
+
+The server detects, aligns and embeds the face with the same model and alignment as the
+kiosk, then stores only the 256-float template. Photographs are processed in memory and are
+not stored as biometric data. Every enabled device receives the employee on its next roster
+sync.
+
 ## Biometric roster
 
 Set a unique `Biometric Person ID` on each participating Employee, then create one enabled

@@ -17,6 +17,8 @@ from frappe import _
 from frappe.utils import add_to_date, get_system_timezone, now_datetime
 
 MAX_BATCH_SIZE = 100
+MAXIMUM_ENROLLMENT_PHOTOS = 10
+DUPLICATE_SIMILARITY_THRESHOLD = 0.72
 AUTHORIZATION_LEASE_SECONDS = 7 * 24 * 60 * 60
 REQUIRED_EVENT_FIELDS = {
     "event_id",
@@ -83,6 +85,94 @@ def create_enrollment_token(employee, consent_confirmed=False, validity_minutes=
         "employee": employee_doc.name,
         "employee_name": employee_doc.employee_name,
         "expires_in_seconds": validity_minutes * 60,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def register_face_from_photo(employee, files, branch_id=None, consent_confirmed=False):
+    """Create or replace an employee template from uploaded photographs.
+
+    Only HR Manager or System Manager may enrol, consent is mandatory, and the
+    resulting template is distributed to every device of the chosen branch
+    (blank branch means every device).
+    """
+    frappe.only_for(["System Manager", "HR Manager"])
+    if str(consent_confirmed).lower() not in {"1", "true", "yes"}:
+        frappe.throw(_("Employee consent must be confirmed before enrollment"))
+    try:
+        from face_attendance import vision
+    except ImportError:
+        frappe.throw(_("Photo enrollment requires the opencv-python-headless package on the server"))
+
+    employee_doc = frappe.get_doc("Employee", employee)
+    if not employee_doc.biometric_person_id:
+        frappe.throw(_("Employee must have a Biometric Person ID"))
+
+    names = _parse_file_names(files)
+    if not names:
+        frappe.throw(_("Upload at least one photograph"))
+    if len(names) > MAXIMUM_ENROLLMENT_PHOTOS:
+        frappe.throw(_("Upload at most {0} photographs").format(MAXIMUM_ENROLLMENT_PHOTOS))
+
+    images = []
+    for name in names:
+        if not frappe.db.exists("File", name):
+            frappe.throw(_("Uploaded file {0} was not found").format(name))
+        images.append(frappe.get_doc("File", name).get_content())
+
+    result = vision.build_template(images)
+    embedding = vision.decode_embedding(result["embedding"])
+
+    for candidate in frappe.get_all(
+        "Biometric Template",
+        filters={
+            "enabled": 1,
+            "model_version": vision.MODEL_VERSION,
+            "employee": ["!=", employee_doc.name],
+        },
+        fields=["employee", "embedding"],
+        limit_page_length=100000,
+    ):
+        try:
+            existing_values = vision.decode_embedding(candidate.embedding)
+        except (TypeError, ValueError):
+            continue
+        if vision.cosine_similarity(embedding, existing_values) >= DUPLICATE_SIMILARITY_THRESHOLD:
+            frappe.throw(
+                _("Face appears to be enrolled already for employee {0}").format(candidate.employee)
+            )
+
+    existing = frappe.db.get_value(
+        "Biometric Template",
+        {"employee": employee_doc.name, "model_version": vision.MODEL_VERSION},
+        "name",
+    )
+    template = frappe.get_doc("Biometric Template", existing) if existing else frappe.new_doc(
+        "Biometric Template"
+    )
+    branch = (branch_id or "").strip()
+    template.update({
+        "employee": employee_doc.name,
+        "enabled": 1,
+        "branch_id": branch,
+        "model_version": vision.MODEL_VERSION,
+        "template_version": result["template_version"],
+        "embedding": result["embedding"],
+        "consent_recorded_at": now_datetime(),
+    })
+    template.save(ignore_permissions=True)
+
+    device_filters = {"enabled": 1}
+    if branch:
+        device_filters["branch_id"] = branch
+    return {
+        "employee": employee_doc.name,
+        "employee_name": employee_doc.employee_name,
+        "model_version": vision.MODEL_VERSION,
+        "template_version": result["template_version"],
+        "samples": result["samples"],
+        "branch_id": branch,
+        "device_count": frappe.db.count("Attendance Device", device_filters),
     }
 
 
@@ -309,6 +399,17 @@ def _parse_json_body(raw_body):
 
 def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _parse_file_names(files):
+    if isinstance(files, str):
+        try:
+            files = json.loads(files)
+        except ValueError:
+            files = files.split(",")
+    if not isinstance(files, list | tuple):
+        frappe.throw(_("files must be a list of uploaded file names"))
+    return [str(name).strip() for name in files if str(name).strip()]
 
 
 def _validated_embedding(encoded):

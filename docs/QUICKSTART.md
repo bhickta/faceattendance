@@ -31,6 +31,19 @@ as a normal app. Device Owner provisioning is required before deploying a locked
 
 ## 3. First employee enrollment
 
+### Option A — register from a photograph in the portal
+
+1. Open an Employee in ERPNext and set a unique **Biometric Person ID**, such as `EMP-1042`.
+2. Save the Employee and click **Face Attendance → Register Face from Photo**.
+3. Upload one to ten front-facing photographs, confirm employee consent and register.
+4. Leave **Branch** blank to distribute the employee to every device, or set a branch.
+5. Every enabled kiosk picks up the employee on its next roster sync.
+
+The server embeds the face with the same model and alignment as the kiosk. Photographs are
+processed in memory and are never stored.
+
+### Option B — enrol on the kiosk with a one-time token
+
 1. Open an Employee in ERPNext and set a unique **Biometric Person ID**, such as `EMP-1042`.
 2. Save the Employee and click **Face Attendance → Issue Face Enrollment Token**.
 3. On the Android device, tap **Enroll employee with one-time token**.
