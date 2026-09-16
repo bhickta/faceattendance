@@ -42,7 +42,7 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .setMinFaceSize(0.2f)
+            .setMinFaceSize(0.1f)
             .build(),
     )
     private val initialization = runCatching {
@@ -66,7 +66,7 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
             return BiometricResult.Unavailable("Biometric roster is empty")
         }
         return when (val capture = capture(bitmap)) {
-            CaptureResult.QualityRejected -> BiometricResult.NoMatch
+            is CaptureResult.QualityRejected -> BiometricResult.NoMatch
             CaptureResult.LivenessFailed -> BiometricResult.LivenessFailed
             is CaptureResult.Unavailable -> BiometricResult.Unavailable(capture.reason)
             is CaptureResult.Success -> {
@@ -92,7 +92,7 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
     }
 
     override suspend fun enroll(bitmap: Bitmap): EnrollmentResult = when (val capture = capture(bitmap)) {
-        CaptureResult.QualityRejected -> EnrollmentResult.QualityRejected
+        is CaptureResult.QualityRejected -> EnrollmentResult.QualityRejected(capture.reason)
         CaptureResult.LivenessFailed -> EnrollmentResult.LivenessFailed
         is CaptureResult.Unavailable -> EnrollmentResult.Unavailable(capture.reason)
         is CaptureResult.Success -> EnrollmentResult.Sample(
@@ -105,18 +105,20 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
         val models = initialization.getOrElse {
             return CaptureResult.Unavailable("Model initialization failed")
         }
-        val faces = detect(bitmap)
-        if (faces.size != 1) return CaptureResult.QualityRejected
-        val face = faces.single()
+        val working = downscale(bitmap)
         val frame = Mat()
         return try {
-            Utils.bitmapToMat(bitmap, frame)
-            if (!passesPoseAndSize(face, frame)) return CaptureResult.QualityRejected
+            val faces = detect(working)
+            if (faces.isEmpty()) return CaptureResult.QualityRejected("no_face")
+            if (faces.size > 1) return CaptureResult.QualityRejected("multiple_faces")
+            val face = faces.single()
+            Utils.bitmapToMat(working, frame)
+            if (!passesPoseAndSize(face, frame)) return CaptureResult.QualityRejected("pose_or_size")
             val quality = imageQuality(frame, face.boundingBox)
-            if (!quality.acceptable) return CaptureResult.QualityRejected
+            if (!quality.acceptable) return CaptureResult.QualityRejected("image_quality")
             val liveness = passiveLiveness(models.passiveLiveness, frame, face.boundingBox)
             if (liveness < LIVENESS_THRESHOLD) return CaptureResult.LivenessFailed
-            val aligned = align(frame, face) ?: return CaptureResult.QualityRejected
+            val aligned = align(frame, face) ?: return CaptureResult.QualityRejected("landmarks")
             val vector = try {
                 embedding(models.recognition, aligned)
             } finally {
@@ -127,7 +129,20 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
             CaptureResult.Unavailable("Offline biometric processing failed")
         } finally {
             frame.release()
+            if (working !== bitmap) working.recycle()
         }
+    }
+
+    private fun downscale(bitmap: Bitmap): Bitmap {
+        val longest = max(bitmap.width, bitmap.height)
+        if (longest <= MAXIMUM_WORKING_DIMENSION) return bitmap
+        val ratio = MAXIMUM_WORKING_DIMENSION.toDouble() / longest
+        return Bitmap.createScaledBitmap(
+            bitmap,
+            max(1, (bitmap.width * ratio).toInt()),
+            max(1, (bitmap.height * ratio).toInt()),
+            true,
+        )
     }
 
     private suspend fun detect(bitmap: Bitmap): List<Face> = suspendCancellableCoroutine { continuation ->
@@ -329,7 +344,7 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
 
     private sealed interface CaptureResult {
         data class Success(val embedding: FloatArray, val livenessScore: Float) : CaptureResult
-        data object QualityRejected : CaptureResult
+        data class QualityRejected(val reason: String) : CaptureResult
         data object LivenessFailed : CaptureResult
         data class Unavailable(val reason: String) : CaptureResult
     }
@@ -351,11 +366,12 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
         private const val MINIMUM_MATCH_MARGIN = 0.08f
         private const val LIVENESS_THRESHOLD = 0.85f
         private const val MINIMUM_FACE_PIXELS = 140
-        private const val MINIMUM_FACE_COVERAGE = 0.08
-        private const val MAXIMUM_YAW_DEGREES = 20f
-        private const val MAXIMUM_ROLL_DEGREES = 15f
-        private const val MINIMUM_BRIGHTNESS = 45.0
-        private const val MAXIMUM_BRIGHTNESS = 220.0
-        private const val MINIMUM_LAPLACIAN_VARIANCE = 70.0
+        private const val MINIMUM_FACE_COVERAGE = 0.02
+        private const val MAXIMUM_YAW_DEGREES = 25f
+        private const val MAXIMUM_ROLL_DEGREES = 20f
+        private const val MINIMUM_BRIGHTNESS = 35.0
+        private const val MAXIMUM_BRIGHTNESS = 230.0
+        private const val MINIMUM_LAPLACIAN_VARIANCE = 45.0
+        private const val MAXIMUM_WORKING_DIMENSION = 1280
     }
 }

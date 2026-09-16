@@ -20,7 +20,7 @@ interface BiometricEngine : AutoCloseable {
 
 sealed interface EnrollmentResult {
     data class Sample(val embedding: FloatArray, val livenessScore: Double) : EnrollmentResult
-    data object QualityRejected : EnrollmentResult
+    data class QualityRejected(val reason: String) : EnrollmentResult
     data object LivenessFailed : EnrollmentResult
     data class Unavailable(val reason: String) : EnrollmentResult
 }

@@ -119,7 +119,7 @@ class EnrollmentActivity : AppCompatActivity() {
                     submitEnrollment()
                 }
             }
-            EnrollmentResult.QualityRejected -> finishSample(R.string.enrollment_quality_rejected)
+            is EnrollmentResult.QualityRejected -> finishSample(R.string.enrollment_quality_rejected_detail, result.reason)
             EnrollmentResult.LivenessFailed -> finishSample(R.string.liveness_failed)
             is EnrollmentResult.Unavailable -> {
                 binding.enrollmentStatus.text = getString(R.string.biometric_unavailable, result.reason)
@@ -167,8 +167,8 @@ class EnrollmentActivity : AppCompatActivity() {
         }
     }
 
-    private fun finishSample(message: Int) {
-        binding.enrollmentStatus.setText(message)
+    private fun finishSample(message: Int, vararg formatArgs: Any) {
+        binding.enrollmentStatus.text = getString(message, *formatArgs)
         busy = false
         updateButton()
     }

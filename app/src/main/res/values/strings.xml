@@ -19,6 +19,7 @@
     <string name="enrollment_sample_saved">Sample %1$d of %2$d saved — move slightly before the next sample</string>
     <string name="capture_enrollment_sample">Capture sample %1$d of %2$d</string>
     <string name="enrollment_quality_rejected">Sample rejected — look straight, improve lighting and hold still</string>
+    <string name="enrollment_quality_rejected_detail">Sample rejected (%1$s) — look straight, improve lighting and hold still</string>
     <string name="enrollment_inconsistent">Samples were inconsistent — enrollment restarted</string>
     <string name="enrollment_saving">Encrypting and saving enrollment…</string>
     <string name="enrollment_complete">Enrollment complete — roster is ready</string>
