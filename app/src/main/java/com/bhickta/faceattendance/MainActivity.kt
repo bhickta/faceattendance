@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        biometricEngine = BiometricEngineFactory.create()
+        biometricEngine = BiometricEngineFactory.create(this)
         binding.checkInButton.setOnClickListener { punch(AttendanceDirection.IN) }
         binding.checkOutButton.setOnClickListener { punch(AttendanceDirection.OUT) }
 

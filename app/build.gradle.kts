@@ -54,7 +54,14 @@ android {
         }
         release {
             isMinifyEnabled = true
-            buildConfigField("String", "BIOMETRIC_ENGINE_CLASS", "\"\"")
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
+            buildConfigField(
+                "String",
+                "BIOMETRIC_ENGINE_CLASS",
+                "\"com.bhickta.faceattendance.vision.OfflineBiometricEngine\"",
+            )
             signingConfigs.findByName("release")?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -97,6 +104,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraXVersion")
     implementation("androidx.camera:camera-view:$cameraXVersion")
     implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("org.opencv:opencv:4.12.0")
     ksp("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")

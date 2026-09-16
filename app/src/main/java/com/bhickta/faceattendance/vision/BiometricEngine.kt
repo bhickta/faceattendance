@@ -1,6 +1,7 @@
 package com.bhickta.faceattendance.vision
 
 import android.graphics.Bitmap
+import android.content.Context
 import com.bhickta.faceattendance.BuildConfig
 import com.bhickta.faceattendance.attendance.RecognitionEvidence
 
@@ -24,11 +25,17 @@ sealed interface BiometricResult {
 }
 
 object BiometricEngineFactory {
-    fun create(): BiometricEngine {
+    fun create(context: Context): BiometricEngine {
         val className = BuildConfig.BIOMETRIC_ENGINE_CLASS
         if (className.isBlank()) return UnavailableBiometricEngine
         return runCatching {
-            Class.forName(className).getDeclaredConstructor().newInstance() as BiometricEngine
+            val type = Class.forName(className)
+            runCatching {
+                type.getDeclaredConstructor(Context::class.java)
+                    .newInstance(context.applicationContext) as BiometricEngine
+            }.getOrElse {
+                type.getDeclaredConstructor().newInstance() as BiometricEngine
+            }
         }.getOrElse { UnavailableBiometricEngine }
     }
 }
@@ -37,5 +44,5 @@ private object UnavailableBiometricEngine : BiometricEngine {
     override val isReady = false
 
     override suspend fun identify(bitmap: Bitmap) =
-        BiometricResult.Unavailable("Licensed biometric engine is not installed")
+        BiometricResult.Unavailable("Offline biometric engine is not available")
 }
