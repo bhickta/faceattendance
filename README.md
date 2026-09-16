@@ -34,6 +34,18 @@ Build the debug APK:
 ./gradlew assembleDebug
 ```
 
+Every successful GitHub Actions run publishes the debug APK as a workflow artifact for 14 days.
+Pushing a `v*` tag builds a signed APK and publishes it in that tag's GitHub Release assets.
+Configure these repository secrets before tagging a release:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded release keystore
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
+
+Keep the release keystore backed up outside GitHub. Losing it prevents compatible upgrades to
+installed production devices.
+
 Install it normally for UI and camera development:
 
 ```bash
