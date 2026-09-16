@@ -1,7 +1,9 @@
 import base64
 import hashlib
 import json
+import math
 import secrets
+import struct
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -35,6 +37,7 @@ REQUIRED_EVENT_FIELDS = {
     "roster_version",
 }
 BIOMETRIC_MODEL_VERSION = "intel-face-reidentification-retail-0095-onnx-v1"
+BIOMETRIC_EMBEDDING_DIMENSIONS = 256
 
 
 @frappe.whitelist(methods=["POST"])
@@ -53,6 +56,34 @@ def create_provisioning_token(device_id, validity_minutes=15):
         "issued_by": frappe.session.user,
     }).insert()
     return {"activation_token": token, "expires_in_seconds": validity_minutes * 60}
+
+
+@frappe.whitelist(methods=["POST"])
+def create_enrollment_token(employee, consent_confirmed=False, validity_minutes=15):
+    frappe.only_for(["System Manager", "HR Manager"])
+    if str(consent_confirmed).lower() not in {"1", "true", "yes"}:
+        frappe.throw(_("Employee consent must be confirmed before enrollment"))
+    validity_minutes = int(validity_minutes)
+    if not 1 <= validity_minutes <= 60:
+        frappe.throw(_("Validity must be between 1 and 60 minutes"))
+    employee_doc = frappe.get_doc("Employee", employee)
+    if not employee_doc.biometric_person_id:
+        frappe.throw(_("Employee must have a Biometric Person ID"))
+    token = secrets.token_urlsafe(32)
+    frappe.get_doc({
+        "doctype": "Biometric Enrollment Token",
+        "employee": employee_doc.name,
+        "token_hash": _token_hash(token),
+        "expires_at": add_to_date(now_datetime(), minutes=validity_minutes),
+        "issued_by": frappe.session.user,
+        "consent_recorded_at": now_datetime(),
+    }).insert()
+    return {
+        "enrollment_token": token,
+        "employee": employee_doc.name,
+        "employee_name": employee_doc.employee_name,
+        "expires_in_seconds": validity_minutes * 60,
+    }
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
@@ -161,6 +192,74 @@ def sync_roster():
 
 
 @frappe.whitelist(methods=["POST"])
+def submit_enrollment():
+    raw_body = frappe.request.get_data(cache=True)
+    payload = _parse_payload(raw_body)
+    device = _authenticated_device(payload.get("device_id"))
+    _verify_signature(device.public_key, raw_body, frappe.get_request_header("X-Device-Signature"))
+    if payload.get("model_version") != BIOMETRIC_MODEL_VERSION:
+        frappe.throw(_("Enrollment model version is not supported"))
+    token = str(payload.get("enrollment_token") or "")
+    embedding, raw_embedding, embedding_values = _validated_embedding(payload.get("embedding"))
+    rows = frappe.db.sql(
+        """select name from `tabBiometric Enrollment Token`
+           where token_hash = %s and used_at is null limit 1 for update""",
+        (_token_hash(token),),
+    )
+    if not rows:
+        frappe.throw(_("Invalid or already used enrollment token"), frappe.AuthenticationError)
+    token_doc = frappe.get_doc("Biometric Enrollment Token", rows[0][0])
+    if token_doc.expires_at < now_datetime():
+        frappe.throw(_("Enrollment token has expired"), frappe.AuthenticationError)
+
+    possible_duplicates = frappe.get_all(
+        "Biometric Template",
+        filters={
+            "enabled": 1,
+            "model_version": BIOMETRIC_MODEL_VERSION,
+            "employee": ["!=", token_doc.employee],
+        },
+        fields=["employee", "embedding"],
+        limit_page_length=100000,
+    )
+    for candidate in possible_duplicates:
+        _, _, candidate_values = _validated_embedding(candidate.embedding)
+        similarity = sum(
+            left * right for left, right in zip(embedding_values, candidate_values, strict=True)
+        )
+        if similarity >= 0.72:
+            frappe.throw(
+                _("Face appears to be enrolled already for employee {0}").format(candidate.employee)
+            )
+
+    template_version = hashlib.sha256(raw_embedding).hexdigest()[:16]
+    existing = frappe.db.get_value(
+        "Biometric Template",
+        {"employee": token_doc.employee, "model_version": BIOMETRIC_MODEL_VERSION},
+        "name",
+    )
+    template = frappe.get_doc("Biometric Template", existing) if existing else frappe.new_doc(
+        "Biometric Template"
+    )
+    template.update({
+        "employee": token_doc.employee,
+        "enabled": 1,
+        "branch_id": device.branch_id,
+        "model_version": BIOMETRIC_MODEL_VERSION,
+        "template_version": template_version,
+        "embedding": embedding,
+        "consent_recorded_at": token_doc.consent_recorded_at,
+    })
+    template.save(ignore_permissions=True)
+    token_doc.db_set("used_at", now_datetime(), update_modified=False)
+    return {
+        "employee": token_doc.employee,
+        "template_version": template_version,
+        "roster_refresh_required": True,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
 def submit_events():
     raw_body = frappe.request.get_data(cache=True)
     payload = _parse_payload(raw_body)
@@ -210,6 +309,20 @@ def _parse_json_body(raw_body):
 
 def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _validated_embedding(encoded):
+    try:
+        raw = base64.b64decode(str(encoded), validate=True)
+        if len(raw) != BIOMETRIC_EMBEDDING_DIMENSIONS * 4:
+            raise ValueError("unexpected embedding length")
+        values = struct.unpack(f"<{BIOMETRIC_EMBEDDING_DIMENSIONS}f", raw)
+    except (TypeError, ValueError, struct.error):
+        frappe.throw(_("Embedding is invalid"))
+    norm = math.sqrt(sum(value * value for value in values))
+    if not all(math.isfinite(value) for value in values) or not 0.99 <= norm <= 1.01:
+        frappe.throw(_("Embedding must be finite and L2-normalized"))
+    return str(encoded), raw, values
 
 
 def _lease():
