@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import secrets
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,7 @@ from frappe import _
 from frappe.utils import add_to_date, get_system_timezone, now_datetime
 
 MAX_BATCH_SIZE = 100
+AUTHORIZATION_LEASE_SECONDS = 7 * 24 * 60 * 60
 REQUIRED_EVENT_FIELDS = {
     "event_id",
     "device_sequence",
@@ -91,6 +93,24 @@ def activate_device():
         "gate_id": device.gate_id,
         "direction_mode": device.direction_mode,
         "assignment_version": device.assignment_version,
+        **_lease(),
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_state():
+    raw_body = frappe.request.get_data(cache=True)
+    payload = _parse_payload(raw_body)
+    device = _authenticated_device(payload.get("device_id"))
+    _verify_signature(device.public_key, raw_body, frappe.get_request_header("X-Device-Signature"))
+    device.db_set("last_seen", now_datetime(), update_modified=False)
+    return {
+        "device_id": device.device_id,
+        "branch_id": device.branch_id,
+        "gate_id": device.gate_id,
+        "direction_mode": device.direction_mode,
+        "assignment_version": device.assignment_version,
+        **_lease(),
     }
 
 
@@ -122,7 +142,7 @@ def submit_events():
 
     _advance_contiguous_sequence(device)
     device.db_set("last_seen", now_datetime(), update_modified=False)
-    return {"results": results}
+    return {"results": results, **_lease()}
 
 
 def _parse_payload(raw_body):
@@ -144,6 +164,14 @@ def _parse_json_body(raw_body):
 
 def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _lease():
+    server_time = int(time.time() * 1000)
+    return {
+        "server_time_epoch_millis": server_time,
+        "authorization_expires_at_epoch_millis": server_time + AUTHORIZATION_LEASE_SECONDS * 1000,
+    }
 
 
 def _validate_public_key(public_key_base64):
