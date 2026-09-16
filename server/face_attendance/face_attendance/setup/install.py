@@ -50,6 +50,24 @@ def after_migrate():
     create_custom_fields(CUSTOM_FIELDS, update=True)
     _add_indexes()
     _migrate_branch_assignments()
+    _migrate_device_last_sync()
+
+
+def _migrate_device_last_sync():
+    """Carry over the old last_seen column after the rename to last_sync_at.
+
+    last_seen was silently dropped from every list query because Frappe's
+    optional_fields check matches the '_seen' substring.
+    """
+    if not frappe.db.table_exists("Attendance Device"):
+        return
+    if not frappe.db.has_column("Attendance Device", "last_sync_at"):
+        return
+    if not frappe.db.has_column("Attendance Device", "last_seen"):
+        return
+    frappe.db.sql(
+        "update `tabAttendance Device` set last_sync_at = coalesce(last_sync_at, last_seen)"
+    )
 
 
 def _migrate_branch_assignments():

@@ -41,14 +41,14 @@ def health():
     devices = frappe.get_all(
         "Attendance Device",
         filters={"enabled": 1},
-        fields=["name", "last_seen"],
+        fields=["name", "last_sync_at"],
     )
     now = now_datetime()
     stale = [
         device.name
         for device in devices
-        if not device.last_seen
-        or (now - device.last_seen).total_seconds() > HEALTHY_DEVICE_AGE_MINUTES * 60
+        if not device.last_sync_at
+        or (now - device.last_sync_at).total_seconds() > HEALTHY_DEVICE_AGE_MINUTES * 60
     ]
     events_last_day = frappe.db.count(
         "Face Attendance Event",
@@ -95,7 +95,7 @@ def device_status():
             "gate_id",
             "direction_mode",
             "assignment_version",
-            "last_seen",
+            "last_sync_at",
             "last_received_sequence",
             "app_version",
             "public_key",
@@ -103,7 +103,7 @@ def device_status():
         order_by="name asc",
     )
     for row in rows:
-        age = None if not row.last_seen else int((now - row.last_seen).total_seconds() // 60)
+        age = None if not row.last_sync_at else int((now - row.last_sync_at).total_seconds() // 60)
         row["age_minutes"] = age
         row["activated"] = bool(row.pop("public_key"))
         row["healthy"] = bool(

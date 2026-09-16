@@ -790,7 +790,7 @@ def _validate_public_key(public_key_base64):
 
 def _touch_device(device, payload=None):
     """Record a device heartbeat, including the reported app version."""
-    device.db_set("last_seen", now_datetime(), update_modified=False)
+    device.db_set("last_sync_at", now_datetime(), update_modified=False)
     app_version = str((payload or {}).get("app_version") or "").strip()[:40]
     if app_version and device.get("app_version") != app_version:
         device.db_set("app_version", app_version, update_modified=False)
