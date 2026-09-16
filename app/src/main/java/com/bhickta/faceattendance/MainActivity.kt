@@ -21,6 +21,7 @@ import com.bhickta.faceattendance.device.KioskController
 import com.bhickta.faceattendance.storage.AttendanceDatabase
 import com.bhickta.faceattendance.storage.DuplicatePunchException
 import com.bhickta.faceattendance.sync.SyncScheduler
+import com.bhickta.faceattendance.ui.applyCompatInsets
 import com.bhickta.faceattendance.vision.BiometricEngine
 import com.bhickta.faceattendance.vision.BiometricEngineFactory
 import com.bhickta.faceattendance.vision.BiometricResult
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyCompatInsets(binding.controlPanel)
         biometricEngine = BiometricEngineFactory.create(this)
         binding.checkInButton.setOnClickListener { punch(AttendanceDirection.IN) }
         binding.checkOutButton.setOnClickListener { punch(AttendanceDirection.OUT) }

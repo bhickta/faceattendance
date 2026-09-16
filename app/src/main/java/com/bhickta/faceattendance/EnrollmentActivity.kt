@@ -13,6 +13,7 @@ import com.bhickta.faceattendance.device.DeviceConfigurationStore
 import com.bhickta.faceattendance.device.DeviceKeyManager
 import com.bhickta.faceattendance.enrollment.EnrollmentClient
 import com.bhickta.faceattendance.sync.AttendanceApiClient
+import com.bhickta.faceattendance.ui.applyCompatInsets
 import com.bhickta.faceattendance.vision.BiometricEngine
 import com.bhickta.faceattendance.vision.BiometricEngineFactory
 import com.bhickta.faceattendance.vision.BiometricRosterStore
@@ -41,6 +42,7 @@ class EnrollmentActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityEnrollmentBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyCompatInsets(binding.enrollmentControls, includeIme = true)
         biometricEngine = BiometricEngineFactory.create(this)
         binding.captureSampleButton.setOnClickListener { captureSample() }
         if (!biometricEngine.isEnrollmentReady) {

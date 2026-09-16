@@ -8,6 +8,7 @@ import com.bhickta.faceattendance.databinding.ActivityProvisioningBinding
 import com.bhickta.faceattendance.device.ActivationClient
 import com.bhickta.faceattendance.device.DeviceConfigurationStore
 import com.bhickta.faceattendance.sync.SyncScheduler
+import com.bhickta.faceattendance.ui.applyCompatInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,6 +20,7 @@ class ProvisioningActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityProvisioningBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyCompatInsets(binding.root, applyTop = true, applyBottom = true, includeIme = true)
         binding.activateButton.setOnClickListener { activate() }
     }
 
