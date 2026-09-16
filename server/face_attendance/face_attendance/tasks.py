@@ -20,6 +20,7 @@ def reconcile_pending_checkins():
 
 
 def expire_provisioning_tokens():
-    # Provisioning token support is introduced with remote activation. This task is kept
-    # as a stable scheduler hook so token cleanup can be deployed without changing operations.
-    return None
+    frappe.db.delete(
+        "Device Provisioning Token",
+        {"expires_at": ["<", frappe.utils.add_days(frappe.utils.now_datetime(), -7)]},
+    )

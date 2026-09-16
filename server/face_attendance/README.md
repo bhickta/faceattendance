@@ -9,9 +9,9 @@ bench --site customer.example.com install-app face_attendance
 ```
 
 Create a dedicated Frappe user and an `Attendance Device` record for every kiosk. Set its
-branch, gate and direction. Device activation tooling will bind the Android signing key and
-deliver credentials; until that workflow is enabled, provisioning is an administrator-only
-operation.
+branch, gate and direction. Call `face_attendance.api.v1.create_provisioning_token` as a
+System Manager and enter the returned one-time token on the kiosk. Activation binds the
+Android signing key and rotates the restricted device user's API credentials.
 
 The ingestion endpoint is:
 

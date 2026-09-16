@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import secrets
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -9,7 +10,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from frappe import _
-from frappe.utils import get_system_timezone, now_datetime
+from frappe.utils import add_to_date, get_system_timezone, now_datetime
 
 MAX_BATCH_SIZE = 100
 REQUIRED_EVENT_FIELDS = {
@@ -30,6 +31,67 @@ REQUIRED_EVENT_FIELDS = {
     "template_version",
     "roster_version",
 }
+
+
+@frappe.whitelist(methods=["POST"])
+def create_provisioning_token(device_id, validity_minutes=15):
+    frappe.only_for("System Manager")
+    validity_minutes = int(validity_minutes)
+    if not 1 <= validity_minutes <= 60:
+        frappe.throw(_("Validity must be between 1 and 60 minutes"))
+    device = frappe.get_doc("Attendance Device", device_id)
+    token = secrets.token_urlsafe(32)
+    frappe.get_doc({
+        "doctype": "Device Provisioning Token",
+        "device": device.name,
+        "token_hash": _token_hash(token),
+        "expires_at": add_to_date(now_datetime(), minutes=validity_minutes),
+        "issued_by": frappe.session.user,
+    }).insert()
+    return {"activation_token": token, "expires_in_seconds": validity_minutes * 60}
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def activate_device():
+    payload = _parse_json_body(frappe.request.get_data(cache=True))
+    token = str(payload.get("activation_token") or "")
+    public_key = str(payload.get("public_key") or "")
+    if not token or not public_key:
+        frappe.throw(_("activation_token and public_key are required"))
+    _validate_public_key(public_key)
+
+    rows = frappe.db.sql(
+        """select name from `tabDevice Provisioning Token`
+        where token_hash = %s and used_at is null limit 1 for update""",
+        (_token_hash(token),),
+    )
+    if not rows:
+        frappe.throw(_("Invalid or already used activation token"), frappe.AuthenticationError)
+    token_doc = frappe.get_doc("Device Provisioning Token", rows[0][0])
+    if token_doc.expires_at < now_datetime():
+        frappe.throw(_("Activation token has expired"), frappe.AuthenticationError)
+
+    device = frappe.get_doc("Attendance Device", token_doc.device)
+    if not device.enabled:
+        frappe.throw(_("Device is disabled"), frappe.PermissionError)
+    user = frappe.get_doc("User", device.device_user)
+    api_key = secrets.token_hex(8)
+    api_secret = secrets.token_urlsafe(24)
+    user.api_key = api_key
+    user.api_secret = api_secret
+    user.save(ignore_permissions=True)
+    device.db_set("public_key", public_key, update_modified=True)
+    token_doc.db_set("used_at", now_datetime(), update_modified=False)
+
+    return {
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "device_id": device.device_id,
+        "branch_id": device.branch_id,
+        "gate_id": device.gate_id,
+        "direction_mode": device.direction_mode,
+        "assignment_version": device.assignment_version,
+    }
 
 
 @frappe.whitelist(methods=["POST"])
@@ -64,13 +126,33 @@ def submit_events():
 
 
 def _parse_payload(raw_body):
+    payload = _parse_json_body(raw_body)
+    if payload.get("schema_version") != 1:
+        frappe.throw(_("Unsupported schema version"))
+    return payload
+
+
+def _parse_json_body(raw_body):
     try:
         payload = json.loads(raw_body)
     except (TypeError, ValueError):
         frappe.throw(_("Request body must be valid JSON"))
-    if payload.get("schema_version") != 1:
-        frappe.throw(_("Unsupported schema version"))
+    if not isinstance(payload, dict):
+        frappe.throw(_("Request body must be a JSON object"))
     return payload
+
+
+def _token_hash(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _validate_public_key(public_key_base64):
+    try:
+        public_key = serialization.load_der_public_key(base64.b64decode(public_key_base64, validate=True))
+    except (TypeError, ValueError):
+        frappe.throw(_("Invalid public key"))
+    if not isinstance(public_key, ec.EllipticCurvePublicKey) or public_key.curve.name != "secp256r1":
+        frappe.throw(_("Public key must use the P-256 elliptic curve"))
 
 
 def _authenticated_device(device_id):
