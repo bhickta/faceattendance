@@ -1,0 +1,23 @@
+{
+  "doctype": "DocType",
+  "name": "Attendance Delivery",
+  "module": "Face Attendance",
+  "autoname": "hash",
+  "fields": [
+    {"fieldname": "event", "label": "Attendance Event", "fieldtype": "Link", "options": "Face Attendance Event", "reqd": 1},
+    {"fieldname": "destination", "label": "Destination", "fieldtype": "Link", "options": "Integration Destination", "reqd": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Pending\nProcessing\nRetry\nDelivered\nFailed", "default": "Pending", "reqd": 1},
+    {"fieldname": "attempts", "label": "Attempts", "fieldtype": "Int", "default": "0", "read_only": 1},
+    {"fieldname": "next_attempt_at", "label": "Next Attempt At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "last_attempt_at", "label": "Last Attempt At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "delivered_at", "label": "Delivered At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "response_status", "label": "Response Status", "fieldtype": "Int", "read_only": 1},
+    {"fieldname": "last_error", "label": "Last Error", "fieldtype": "Small Text", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "HR Manager", "read": 1, "report": 1},
+    {"role": "System Manager", "read": 1, "report": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

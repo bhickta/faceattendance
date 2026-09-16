@@ -11,12 +11,14 @@ after_install = "face_attendance.setup.install.after_install"
 after_migrate = "face_attendance.setup.install.after_migrate"
 
 scheduler_events = {
+    "cron": {"*/5 * * * *": ["face_attendance.integrations.webhook.process_due_deliveries"]},
     "hourly": ["face_attendance.tasks.reconcile_pending_checkins"],
     "daily": ["face_attendance.tasks.expire_provisioning_tokens"],
 }
 
 doc_events = {
     "Face Attendance Event": {
+        "after_insert": "face_attendance.integrations.webhook.create_deliveries",
         "before_cancel": "face_attendance.immutability.reject_mutation",
         "on_trash": "face_attendance.immutability.reject_mutation",
     },

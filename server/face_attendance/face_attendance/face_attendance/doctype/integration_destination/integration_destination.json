@@ -1,0 +1,18 @@
+{
+  "doctype": "DocType",
+  "name": "Integration Destination",
+  "module": "Face Attendance",
+  "autoname": "field:destination_name",
+  "title_field": "destination_name",
+  "fields": [
+    {"fieldname": "destination_name", "label": "Destination Name", "fieldtype": "Data", "reqd": 1, "unique": 1},
+    {"fieldname": "enabled", "label": "Enabled", "fieldtype": "Check", "default": "1"},
+    {"fieldname": "endpoint_url", "label": "HTTPS Endpoint", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "signing_secret", "label": "Signing Secret", "fieldtype": "Password", "reqd": 1},
+    {"fieldname": "max_attempts", "label": "Max Attempts", "fieldtype": "Int", "default": "20", "reqd": 1}
+  ],
+  "permissions": [
+    {"role": "System Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1}
+  ],
+  "track_changes": 1
+}

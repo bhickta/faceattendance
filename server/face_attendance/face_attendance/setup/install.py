@@ -42,3 +42,9 @@ def _add_indexes():
             ["device", "device_sequence"],
             constraint_name="unique_device_sequence",
         )
+    if frappe.db.table_exists("Attendance Delivery"):
+        frappe.db.add_unique(
+            "Attendance Delivery",
+            ["event", "destination"],
+            constraint_name="unique_event_destination",
+        )
