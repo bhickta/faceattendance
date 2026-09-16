@@ -1,0 +1,31 @@
+{
+  "doctype": "DocType",
+  "name": "Face Attendance Registration",
+  "module": "Face Attendance",
+  "autoname": "format:REG-{#####}",
+  "title_field": "full_name",
+  "fields": [
+    {"fieldname": "full_name", "label": "Full Name", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "phone", "label": "Phone", "fieldtype": "Data", "in_list_view": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Pending\nApproved\nRejected", "default": "Pending", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "employee", "label": "Employee", "fieldtype": "Link", "options": "Employee", "read_only": 1},
+    {"fieldname": "requested_direction", "label": "Requested Direction", "fieldtype": "Select", "options": "IN\nOUT", "default": "IN"},
+    {"fieldname": "captured_at", "label": "Captured At", "fieldtype": "Datetime"},
+    {"fieldname": "device", "label": "Device", "fieldtype": "Link", "options": "Attendance Device"},
+    {"fieldname": "branch_id", "label": "Branch", "fieldtype": "Data"},
+    {"fieldname": "gate_id", "label": "Gate", "fieldtype": "Data"},
+    {"fieldname": "consent_recorded_at", "label": "Consent Recorded At", "fieldtype": "Datetime"},
+    {"fieldname": "model_version", "label": "Model Version", "fieldtype": "Data"},
+    {"fieldname": "template_version", "label": "Template Version", "fieldtype": "Data"},
+    {"fieldname": "sample_count", "label": "Samples", "fieldtype": "Int"},
+    {"fieldname": "embedding", "label": "Base64 Float32 Embedding", "fieldtype": "Long Text", "no_copy": 1},
+    {"fieldname": "reviewed_by", "label": "Reviewed By", "fieldtype": "Link", "options": "User", "read_only": 1},
+    {"fieldname": "reviewed_at", "label": "Reviewed At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "rejection_reason", "label": "Rejection Reason", "fieldtype": "Small Text"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1, "export": 1},
+    {"role": "HR Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1, "export": 1}
+  ],
+  "track_changes": 1
+}

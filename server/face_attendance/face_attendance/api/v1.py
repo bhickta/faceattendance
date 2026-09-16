@@ -14,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from frappe import _
-from frappe.utils import add_to_date, get_system_timezone, now_datetime
+from frappe.utils import add_to_date, get_system_timezone, now_datetime, today
 
 MAX_BATCH_SIZE = 100
 MAXIMUM_ENROLLMENT_PHOTOS = 10
@@ -494,6 +494,200 @@ def submit_enrollment():
         "template_version": template_version,
         "roster_refresh_required": True,
     }
+
+
+@frappe.whitelist(methods=["POST"])
+def submit_self_registration():
+    """Kiosk side self-registration of an unknown person for HR approval."""
+    raw_body = frappe.request.get_data(cache=True)
+    payload = _parse_payload(raw_body)
+    device = _authenticated_device(payload.get("device_id"))
+    _verify_signature(device.public_key, raw_body, frappe.get_request_header("X-Device-Signature"))
+
+    full_name = str(payload.get("full_name") or "").strip()
+    if not 2 <= len(full_name) <= 140:
+        frappe.throw(_("A name between 2 and 140 characters is required"))
+    if str(payload.get("consent_confirmed")).lower() not in {"1", "true", "yes"}:
+        frappe.throw(_("Consent is required before registration"))
+    if payload.get("model_version") != BIOMETRIC_MODEL_VERSION:
+        frappe.throw(_("Registration model version is not supported"))
+
+    embedding, raw_embedding, values = _validated_embedding(payload.get("embedding"))
+    captured_at = (
+        _captured_at(payload["captured_at"]) if payload.get("captured_at") else now_datetime()
+    )
+
+    for candidate in frappe.get_all(
+        "Biometric Template",
+        filters={"enabled": 1, "model_version": BIOMETRIC_MODEL_VERSION},
+        fields=["employee", "embedding"],
+        limit_page_length=100000,
+    ):
+        try:
+            _, _, candidate_values = _validated_embedding(candidate.embedding)
+        except frappe.ValidationError:
+            continue
+        similarity = sum(
+            left * right for left, right in zip(values, candidate_values, strict=True)
+        )
+        if similarity >= DUPLICATE_SIMILARITY_THRESHOLD:
+            return {
+                "status": "already_enrolled",
+                "employee": candidate.employee,
+                "employee_name": frappe.db.get_value("Employee", candidate.employee, "employee_name"),
+            }
+
+    for candidate in frappe.get_all(
+        "Face Attendance Registration",
+        filters={"status": "Pending"},
+        fields=["name", "full_name", "embedding"],
+        limit_page_length=100000,
+    ):
+        if not candidate.embedding:
+            continue
+        try:
+            _, _, candidate_values = _validated_embedding(candidate.embedding)
+        except frappe.ValidationError:
+            continue
+        similarity = sum(
+            left * right for left, right in zip(values, candidate_values, strict=True)
+        )
+        if similarity >= DUPLICATE_SIMILARITY_THRESHOLD:
+            return {
+                "status": "pending_approval",
+                "registration": candidate.name,
+                "employee_name": candidate.full_name,
+            }
+
+    registration = frappe.get_doc({
+        "doctype": "Face Attendance Registration",
+        "full_name": full_name,
+        "phone": str(payload.get("phone") or "").strip()[:40],
+        "status": "Pending",
+        "requested_direction": "OUT" if str(payload.get("direction")).upper() == "OUT" else "IN",
+        "captured_at": captured_at,
+        "device": device.name,
+        "branch_id": device.branch_id,
+        "gate_id": device.gate_id,
+        "consent_recorded_at": now_datetime(),
+        "model_version": BIOMETRIC_MODEL_VERSION,
+        "template_version": hashlib.sha256(raw_embedding).hexdigest()[:16],
+        "sample_count": int(payload.get("sample_count") or 0),
+        "embedding": embedding,
+    }).insert(ignore_permissions=True)
+    device.db_set("last_seen", now_datetime(), update_modified=False)
+    return {"status": "pending_approval", "registration": registration.name}
+
+
+@frappe.whitelist(methods=["POST"])
+def approve_registration(
+    name,
+    employee=None,
+    company=None,
+    gender=None,
+    date_of_birth=None,
+    date_of_joining=None,
+    biometric_person_id=None,
+):
+    """Turn a pending kiosk registration into an employee with a face template."""
+    frappe.only_for(["System Manager", "HR Manager"])
+    registration = frappe.get_doc("Face Attendance Registration", name)
+    if registration.status != "Pending":
+        frappe.throw(_("This registration has already been reviewed"))
+
+    if employee:
+        employee_doc = frappe.get_doc("Employee", employee)
+    else:
+        employee_doc = _create_employee_from_registration(
+            registration,
+            company,
+            gender,
+            date_of_birth,
+            date_of_joining,
+            biometric_person_id,
+        )
+
+    existing = frappe.db.get_value(
+        "Biometric Template",
+        {"employee": employee_doc.name, "model_version": registration.model_version},
+        "name",
+    )
+    template = frappe.get_doc("Biometric Template", existing) if existing else frappe.new_doc(
+        "Biometric Template"
+    )
+    template.employee = employee_doc.name
+    template.enabled = 1
+    template.branch_id = ""
+    template.model_version = registration.model_version
+    template.template_version = registration.template_version
+    template.embedding = registration.embedding
+    template.consent_recorded_at = registration.consent_recorded_at or now_datetime()
+    template.set("allowed_branches", [])
+    template.save(ignore_permissions=True)
+
+    if _managed_attendance() and registration.captured_at:
+        frappe.get_doc({
+            "doctype": "Employee Checkin",
+            "employee": employee_doc.name,
+            "time": registration.captured_at,
+            "log_type": registration.requested_direction or "IN",
+            "device_id": registration.device,
+        }).insert(ignore_permissions=True)
+
+    registration.db_set("status", "Approved")
+    registration.db_set("employee", employee_doc.name)
+    registration.db_set("reviewed_by", frappe.session.user)
+    registration.db_set("reviewed_at", now_datetime())
+    return {
+        "status": "Approved",
+        "employee": employee_doc.name,
+        "employee_name": employee_doc.employee_name,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def reject_registration(name, reason=None):
+    frappe.only_for(["System Manager", "HR Manager"])
+    registration = frappe.get_doc("Face Attendance Registration", name)
+    if registration.status != "Pending":
+        frappe.throw(_("This registration has already been reviewed"))
+    registration.db_set("status", "Rejected")
+    registration.db_set("rejection_reason", (reason or "").strip())
+    registration.db_set("reviewed_by", frappe.session.user)
+    registration.db_set("reviewed_at", now_datetime())
+    return {"status": "Rejected"}
+
+
+def _create_employee_from_registration(
+    registration,
+    company,
+    gender,
+    date_of_birth,
+    date_of_joining,
+    biometric_person_id,
+):
+    company = (
+        company
+        or frappe.defaults.get_global_default("company")
+        or frappe.db.get_value("Company", {}, "name")
+    )
+    if not company:
+        frappe.throw(_("Set a default Company before approving registrations"))
+    person_id = (biometric_person_id or "").strip() or registration.name
+    if frappe.db.exists("Employee", {"biometric_person_id": person_id}):
+        frappe.throw(_("Biometric Person ID {0} is already in use").format(person_id))
+    return frappe.get_doc({
+        "doctype": "Employee",
+        "first_name": registration.full_name,
+        "employee_name": registration.full_name,
+        "gender": gender or "Prefer not to say",
+        "date_of_birth": date_of_birth or "1990-01-01",
+        "date_of_joining": date_of_joining or today(),
+        "status": "Active",
+        "company": company,
+        "cell_number": registration.phone or None,
+        "biometric_person_id": person_id,
+    }).insert(ignore_permissions=True)
 
 
 @frappe.whitelist(methods=["POST"])
