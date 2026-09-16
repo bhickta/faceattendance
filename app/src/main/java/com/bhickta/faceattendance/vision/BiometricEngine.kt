@@ -7,10 +7,22 @@ import com.bhickta.faceattendance.attendance.RecognitionEvidence
 
 interface BiometricEngine : AutoCloseable {
     val isReady: Boolean
+    val isEnrollmentReady: Boolean
+        get() = isReady
 
     suspend fun identify(bitmap: Bitmap): BiometricResult
 
+    suspend fun enroll(bitmap: Bitmap): EnrollmentResult =
+        EnrollmentResult.Unavailable("Enrollment is not supported")
+
     override fun close() = Unit
+}
+
+sealed interface EnrollmentResult {
+    data class Sample(val embedding: FloatArray, val livenessScore: Double) : EnrollmentResult
+    data object QualityRejected : EnrollmentResult
+    data object LivenessFailed : EnrollmentResult
+    data class Unavailable(val reason: String) : EnrollmentResult
 }
 
 sealed interface BiometricResult {

@@ -56,51 +56,75 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
     override val isReady: Boolean
         get() = initialization.isSuccess && rosterStore.get()?.templates?.isNotEmpty() == true
 
+    override val isEnrollmentReady: Boolean
+        get() = initialization.isSuccess
+
     override suspend fun identify(bitmap: Bitmap): BiometricResult {
-        val models = initialization.getOrElse {
-            return BiometricResult.Unavailable("Model initialization failed")
-        }
         val roster = rosterStore.get()
             ?: return BiometricResult.Unavailable("Biometric roster has not synchronized")
         if (roster.templates.isEmpty()) {
             return BiometricResult.Unavailable("Biometric roster is empty")
         }
+        return when (val capture = capture(bitmap)) {
+            CaptureResult.QualityRejected -> BiometricResult.NoMatch
+            CaptureResult.LivenessFailed -> BiometricResult.LivenessFailed
+            is CaptureResult.Unavailable -> BiometricResult.Unavailable(capture.reason)
+            is CaptureResult.Success -> {
+                val match = CosineMatcher.best(
+                    probe = capture.embedding,
+                    templates = roster.templates,
+                    threshold = MATCH_THRESHOLD,
+                    minimumMargin = MINIMUM_MATCH_MARGIN,
+                ) ?: return BiometricResult.NoMatch
+                BiometricResult.Match(
+                    evidence = RecognitionEvidence(
+                        personId = match.template.personId,
+                        matchScore = match.similarity.coerceIn(0f, 1f).toDouble(),
+                        livenessScore = capture.livenessScore.toDouble(),
+                        modelVersion = MODEL_VERSION,
+                        templateVersion = match.template.templateVersion,
+                        rosterVersion = roster.version,
+                    ),
+                    displayName = match.template.displayName,
+                )
+            }
+        }
+    }
+
+    override suspend fun enroll(bitmap: Bitmap): EnrollmentResult = when (val capture = capture(bitmap)) {
+        CaptureResult.QualityRejected -> EnrollmentResult.QualityRejected
+        CaptureResult.LivenessFailed -> EnrollmentResult.LivenessFailed
+        is CaptureResult.Unavailable -> EnrollmentResult.Unavailable(capture.reason)
+        is CaptureResult.Success -> EnrollmentResult.Sample(
+            embedding = capture.embedding,
+            livenessScore = capture.livenessScore.toDouble(),
+        )
+    }
+
+    private suspend fun capture(bitmap: Bitmap): CaptureResult {
+        val models = initialization.getOrElse {
+            return CaptureResult.Unavailable("Model initialization failed")
+        }
         val faces = detect(bitmap)
-        if (faces.size != 1) return BiometricResult.NoMatch
+        if (faces.size != 1) return CaptureResult.QualityRejected
         val face = faces.single()
         val frame = Mat()
         return try {
             Utils.bitmapToMat(bitmap, frame)
-            if (!passesPoseAndSize(face, frame)) return BiometricResult.NoMatch
+            if (!passesPoseAndSize(face, frame)) return CaptureResult.QualityRejected
             val quality = imageQuality(frame, face.boundingBox)
-            if (!quality.acceptable) return BiometricResult.NoMatch
+            if (!quality.acceptable) return CaptureResult.QualityRejected
             val liveness = passiveLiveness(models.passiveLiveness, frame, face.boundingBox)
-            if (liveness < LIVENESS_THRESHOLD) return BiometricResult.LivenessFailed
-            val aligned = align(frame, face) ?: return BiometricResult.NoMatch
-            val embedding = try {
+            if (liveness < LIVENESS_THRESHOLD) return CaptureResult.LivenessFailed
+            val aligned = align(frame, face) ?: return CaptureResult.QualityRejected
+            val vector = try {
                 embedding(models.recognition, aligned)
             } finally {
                 aligned.release()
             }
-            val match = CosineMatcher.best(
-                probe = embedding,
-                templates = roster.templates,
-                threshold = MATCH_THRESHOLD,
-                minimumMargin = MINIMUM_MATCH_MARGIN,
-            ) ?: return BiometricResult.NoMatch
-            BiometricResult.Match(
-                evidence = RecognitionEvidence(
-                    personId = match.template.personId,
-                    matchScore = match.similarity.coerceIn(0f, 1f).toDouble(),
-                    livenessScore = liveness.toDouble(),
-                    modelVersion = MODEL_VERSION,
-                    templateVersion = match.template.templateVersion,
-                    rosterVersion = roster.version,
-                ),
-                displayName = match.template.displayName,
-            )
+            CaptureResult.Success(vector, liveness)
         } catch (_: Throwable) {
-            BiometricResult.Unavailable("Offline biometric processing failed")
+            CaptureResult.Unavailable("Offline biometric processing failed")
         } finally {
             frame.release()
         }
@@ -302,6 +326,13 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
     }
 
     private data class ImageQuality(val acceptable: Boolean)
+
+    private sealed interface CaptureResult {
+        data class Success(val embedding: FloatArray, val livenessScore: Float) : CaptureResult
+        data object QualityRejected : CaptureResult
+        data object LivenessFailed : CaptureResult
+        data class Unavailable(val reason: String) : CaptureResult
+    }
 
     private data class Models(val recognition: Net, val passiveLiveness: List<Net>) : AutoCloseable {
         override fun close() = Unit

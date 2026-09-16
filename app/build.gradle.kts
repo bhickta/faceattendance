@@ -12,11 +12,14 @@ android {
         applicationId = "com.bhickta.faceattendance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://example.invalid/\"")
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
@@ -54,9 +57,6 @@ android {
         }
         release {
             isMinifyEnabled = true
-            ndk {
-                abiFilters += "arm64-v8a"
-            }
             buildConfigField(
                 "String",
                 "BIOMETRIC_ENGINE_CLASS",

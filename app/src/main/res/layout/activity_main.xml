@@ -65,6 +65,14 @@
                 android:enabled="false"
                 android:text="@string/check_in" />
         </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/enrollButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/enroll_with_token" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
