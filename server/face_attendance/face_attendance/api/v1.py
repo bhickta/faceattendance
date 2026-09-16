@@ -401,7 +401,8 @@ def sync_roster():
         as_dict=True,
     )
     version_material = "\n".join(
-        f"{row.name}|{row.modified}|{row.template_version}" for row in rows
+        f"{row.name}|{row.modified}|{row.template_version}|{row.biometric_person_id}|{row.employee_name}"
+        for row in rows
     )
     roster_version = hashlib.sha256(
         f"{BIOMETRIC_MODEL_VERSION}\n{version_material}".encode()
