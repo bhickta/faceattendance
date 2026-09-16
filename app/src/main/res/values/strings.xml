@@ -13,7 +13,6 @@
     <string name="enroll">Enroll person</string>
     <string name="check_in">Check in</string>
     <string name="check_out">Check out</string>
-    <string name="debug_biometric_warning">DEMO BIOMETRICS — NOT FOR ATTENDANCE</string>
     <string name="recognizing">Checking identity and liveness…</string>
     <string name="attendance_saved">%1$s saved for %2$s</string>
     <string name="identity_not_found">Identity not found — ask a supervisor for help</string>

@@ -12,7 +12,6 @@
     <string name="enroll">व्यक्ति का नामांकन</string>
     <string name="check_in">अंदर</string>
     <string name="check_out">बाहर</string>
-    <string name="debug_biometric_warning">डेमो बायोमेट्रिक्स — उपस्थिति के लिए नहीं</string>
     <string name="recognizing">पहचान और जीवंतता जाँची जा रही है…</string>
     <string name="attendance_saved">%2$s के लिए %1$s सुरक्षित किया गया</string>
     <string name="identity_not_found">पहचान नहीं मिली — पर्यवेक्षक से सहायता लें</string>

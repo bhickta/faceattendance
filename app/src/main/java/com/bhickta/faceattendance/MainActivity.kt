@@ -133,9 +133,6 @@ class MainActivity : AppCompatActivity() {
             binding.checkOutButton.isEnabled = false
             binding.faceStatus.setText(R.string.authorization_expired)
         }
-        if (BuildConfig.DEBUG && biometricEngine.isReady) {
-            binding.kioskStatus.setText(R.string.debug_biometric_warning)
-        }
     }
 
     private fun punch(direction: AttendanceDirection) {
@@ -167,6 +164,8 @@ class MainActivity : AppCompatActivity() {
                 else R.string.turn_head_right,
             )
             ChallengeUpdate.WaitingForTurn -> Unit
+            ChallengeUpdate.RequestNeutralAfterTurn -> binding.faceStatus.setText(R.string.look_straight)
+            ChallengeUpdate.WaitingForReturn -> Unit
             ChallengeUpdate.Passed -> {
                 val direction = pendingDirection ?: return
                 activeChallenge = null

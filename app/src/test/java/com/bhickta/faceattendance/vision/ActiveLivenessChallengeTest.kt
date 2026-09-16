@@ -14,7 +14,9 @@ class ActiveLivenessChallengeTest {
             challenge.observe(1, 2f),
         )
         assertEquals(ChallengeUpdate.WaitingForTurn, challenge.observe(1, 12f))
-        assertEquals(ChallengeUpdate.Passed, challenge.observe(1, -19f))
+        assertEquals(ChallengeUpdate.RequestNeutralAfterTurn, challenge.observe(1, -19f))
+        assertEquals(ChallengeUpdate.WaitingForReturn, challenge.observe(1, -12f))
+        assertEquals(ChallengeUpdate.Passed, challenge.observe(1, 1f))
     }
 
     @Test

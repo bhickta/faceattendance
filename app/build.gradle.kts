@@ -49,7 +49,7 @@ android {
             buildConfigField(
                 "String",
                 "BIOMETRIC_ENGINE_CLASS",
-                "\"com.bhickta.faceattendance.vision.DemoBiometricEngine\"",
+                "\"com.bhickta.faceattendance.vision.OfflineBiometricEngine\"",
             )
         }
         release {
