@@ -12,6 +12,14 @@
     <string name="day_summary_out">गया %1$s · कुल %2$s</string>
     <string name="duration_hm">%1$d घं %2$d मि</string>
     <string name="duration_m">%1$d मि</string>
+    <string name="sync_now">अभी सिंक करें</string>
+    <string name="sync_requested">सिंक हो रहा है…</string>
+    <string name="sync_offline">ऑफ़लाइन — सिंक के लिए वाई-फ़ाई से जोड़ें</string>
+    <string name="saved_offline">ऑफ़लाइन सहेजा गया, बाद में सिंक होगा</string>
+    <string name="network_online">ऑनलाइन</string>
+    <string name="network_online_pending">ऑनलाइन · %1$d पंच सिंक हो रहे हैं</string>
+    <string name="network_offline">ऑफ़लाइन — पंच यहाँ सहेजे जाएँगे और बाद में सिंक होंगे</string>
+    <string name="network_offline_pending">ऑफ़लाइन — %1$d पंच सिंक होने बाकी हैं</string>
     <string name="not_device_owner">डेवलपमेंट मोड: यह ऐप डिवाइस ओनर नहीं है</string>
     <string name="device_owner_active">प्रबंधित कियोस्क मोड सक्रिय है</string>
     <string name="enroll">व्यक्ति का नामांकन</string>

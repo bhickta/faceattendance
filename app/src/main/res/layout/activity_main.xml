@@ -47,6 +47,15 @@
                 android:layout_marginTop="2dp"
                 android:textColor="@color/on_surface_muted"
                 android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/networkStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/on_surface_muted"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
@@ -207,6 +216,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/enroll_with_token" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/syncNowButton"
+            style="@style/Widget.FaceAttendance.Button.Text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sync_now" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

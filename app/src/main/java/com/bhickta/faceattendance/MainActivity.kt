@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -58,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var resultHideJob: Job? = null
     private var toneGenerator: ToneGenerator? = null
     private var livenessAttempts = 0
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private val provisionDevice = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -83,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         binding.enrollButton.setOnClickListener {
             startActivity(Intent(this, EnrollmentActivity::class.java))
         }
+        binding.syncNowButton.setOnClickListener { requestManualSync() }
 
         kioskController = KioskController(this)
         kioskController.applyDedicatedDevicePolicy()
@@ -105,6 +110,90 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         kioskController.enterLockTaskIfAllowed()
+        updateNetworkStatus()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerNetworkCallback()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        unregisterNetworkCallback()
+    }
+
+    private fun registerNetworkCallback() {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        if (networkCallback != null) return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                runOnUiThread { updateNetworkStatus() }
+            }
+
+            override fun onLost(network: Network) {
+                runOnUiThread { updateNetworkStatus() }
+            }
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities,
+            ) {
+                runOnUiThread { updateNetworkStatus() }
+            }
+        }
+        runCatching { manager.registerDefaultNetworkCallback(callback) }
+            .onSuccess { networkCallback = callback }
+    }
+
+    private fun unregisterNetworkCallback() {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        val callback = networkCallback ?: return
+        runCatching { manager.unregisterNetworkCallback(callback) }
+        networkCallback = null
+    }
+
+    private fun isOnline(): Boolean {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return true
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun updateNetworkStatus() {
+        val online = isOnline()
+        lifecycleScope.launch {
+            val pending = withContext(Dispatchers.IO) {
+                AttendanceDatabase.get(this@MainActivity).attendanceEventDao().pendingCount()
+            }
+            binding.networkStatus.text = when {
+                online && pending == 0 -> getString(R.string.network_online)
+                online -> getString(R.string.network_online_pending, pending)
+                pending == 0 -> getString(R.string.network_offline)
+                else -> getString(R.string.network_offline_pending, pending)
+            }
+            binding.networkStatus.setTextColor(
+                ContextCompat.getColor(
+                    this@MainActivity,
+                    if (online) R.color.success else R.color.warning,
+                ),
+            )
+        }
+    }
+
+    private fun requestManualSync() {
+        if (!isOnline()) {
+            showResult(ResultKind.WARNING, R.string.sync_offline)
+            return
+        }
+        SyncScheduler.requestNow(this)
+        binding.faceStatus.setText(R.string.sync_requested)
+        showResult(ResultKind.SUCCESS, R.string.sync_requested, null, visibleMillis = 3_000L)
+        lifecycleScope.launch {
+            delay(SYNC_REFRESH_DELAY_MS)
+            updateNetworkStatus()
+        }
     }
 
     override fun onDestroy() {
@@ -334,7 +423,14 @@ class MainActivity : AppCompatActivity() {
                 binding.daySummary.text = summary
                 binding.daySummary.visibility = View.VISIBLE
             }
-            showResult(ResultKind.SUCCESS, title, summary ?: match.displayName)
+            val detail = summary ?: match.displayName
+            val offline = !isOnline()
+            showResult(
+                ResultKind.SUCCESS,
+                title,
+                if (offline) "$detail · ${getString(R.string.saved_offline)}" else detail,
+            )
+            updateNetworkStatus()
         }.onFailure {
             val duplicate = it === DuplicatePunchException
             val message = if (duplicate) R.string.duplicate_punch else R.string.attendance_save_failed
@@ -520,5 +616,6 @@ class MainActivity : AppCompatActivity() {
         const val RESULT_VISIBLE_MS = 6_000L
         const val SELF_REGISTRATION_VISIBLE_MS = 15_000L
         const val MAX_LIVENESS_ATTEMPTS = 2
+        const val SYNC_REFRESH_DELAY_MS = 2_500L
     }
 }

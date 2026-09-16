@@ -13,6 +13,14 @@
     <string name="day_summary_out">Out %1$s · Total %2$s</string>
     <string name="duration_hm">%1$dh %2$dm</string>
     <string name="duration_m">%1$dm</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_requested">Syncing…</string>
+    <string name="sync_offline">Offline — connect this kiosk to Wi-Fi to sync</string>
+    <string name="saved_offline">saved offline, will sync</string>
+    <string name="network_online">Online</string>
+    <string name="network_online_pending">Online · %1$d punch(es) syncing</string>
+    <string name="network_offline">Offline — punches save here and sync later</string>
+    <string name="network_offline_pending">Offline — %1$d punch(es) waiting to sync</string>
     <string name="not_device_owner">Development mode: this app is not Device Owner</string>
     <string name="device_owner_active">Managed kiosk mode active</string>
     <string name="enroll">Enroll person</string>
