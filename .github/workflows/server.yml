@@ -23,6 +23,8 @@ jobs:
         run: ruff check server/face_attendance
       - name: Compile Python sources
         run: python -m compileall -q server/face_attendance/face_attendance
+      - name: Build installable app package
+        run: python -m pip wheel --no-deps --wheel-dir /tmp/face-attendance-wheel server/face_attendance
       - name: Validate DocType JSON
         run: |
           python - <<'PY'
