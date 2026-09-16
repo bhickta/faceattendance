@@ -1,0 +1,23 @@
+app_name = "face_attendance"
+app_title = "Face Attendance"
+app_publisher = "Nishant Bhickta"
+app_description = "Offline-first face attendance device management for Frappe HR"
+app_email = "nishant.bhickta@gmail.com"
+app_license = "MIT"
+
+required_apps = ["hrms"]
+
+after_install = "face_attendance.setup.install.after_install"
+after_migrate = "face_attendance.setup.install.after_migrate"
+
+scheduler_events = {
+    "hourly": ["face_attendance.tasks.reconcile_pending_checkins"],
+    "daily": ["face_attendance.tasks.expire_provisioning_tokens"],
+}
+
+doc_events = {
+    "Face Attendance Event": {
+        "before_cancel": "face_attendance.immutability.reject_mutation",
+        "on_trash": "face_attendance.immutability.reject_mutation",
+    },
+}

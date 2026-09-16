@@ -1,0 +1,23 @@
+{
+  "doctype": "DocType",
+  "name": "Attendance Device",
+  "module": "Face Attendance",
+  "autoname": "field:device_id",
+  "title_field": "device_id",
+  "fields": [
+    {"fieldname": "device_id", "label": "Device ID", "fieldtype": "Data", "reqd": 1, "unique": 1},
+    {"fieldname": "enabled", "label": "Enabled", "fieldtype": "Check", "default": "1"},
+    {"fieldname": "device_user", "label": "Device User", "fieldtype": "Link", "options": "User", "reqd": 1, "unique": 1},
+    {"fieldname": "public_key", "label": "Device Public Key", "fieldtype": "Long Text", "read_only": 1},
+    {"fieldname": "branch_id", "label": "Branch", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "gate_id", "label": "Gate", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "direction_mode", "label": "Direction Mode", "fieldtype": "Select", "options": "IN\nOUT\nSELECT", "default": "SELECT", "reqd": 1},
+    {"fieldname": "assignment_version", "label": "Assignment Version", "fieldtype": "Data", "default": "1", "reqd": 1},
+    {"fieldname": "last_received_sequence", "label": "Last Contiguous Sequence", "fieldtype": "Int", "default": "0", "read_only": 1},
+    {"fieldname": "last_seen", "label": "Last Seen", "fieldtype": "Datetime", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "System Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1}
+  ],
+  "track_changes": 1
+}

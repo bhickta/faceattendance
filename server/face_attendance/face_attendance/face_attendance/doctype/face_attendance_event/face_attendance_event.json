@@ -1,0 +1,40 @@
+{
+  "doctype": "DocType",
+  "name": "Face Attendance Event",
+  "module": "Face Attendance",
+  "autoname": "field:event_id",
+  "read_only": 1,
+  "fields": [
+    {"fieldname": "event_id", "label": "Event ID", "fieldtype": "Data", "reqd": 1, "unique": 1},
+    {"fieldname": "payload_hash", "label": "Payload Hash", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "device", "label": "Device", "fieldtype": "Link", "options": "Attendance Device", "reqd": 1},
+    {"fieldname": "device_sequence", "label": "Device Sequence", "fieldtype": "Int", "reqd": 1},
+    {"fieldname": "employee", "label": "Employee", "fieldtype": "Link", "options": "Employee", "reqd": 1},
+    {"fieldname": "branch_id", "label": "Branch", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "gate_id", "label": "Gate", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "assignment_version", "label": "Assignment Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "event_type", "label": "Event Type", "fieldtype": "Select", "options": "IN\nOUT", "reqd": 1},
+    {"fieldname": "captured_at", "label": "Captured At", "fieldtype": "Datetime", "reqd": 1},
+    {"fieldname": "captured_at_iso", "label": "Original Captured At", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "received_at", "label": "Received At", "fieldtype": "Datetime", "reqd": 1},
+    {"fieldname": "boot_id", "label": "Boot ID", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "captured_at_elapsed_ms", "label": "Elapsed Capture Time", "fieldtype": "Int"},
+    {"fieldname": "timezone_offset_minutes", "label": "Timezone Offset", "fieldtype": "Int"},
+    {"fieldname": "timestamp_confidence", "label": "Timestamp Confidence", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "match_score", "label": "Match Score", "fieldtype": "Float", "reqd": 1},
+    {"fieldname": "liveness_score", "label": "Liveness Score", "fieldtype": "Float", "reqd": 1},
+    {"fieldname": "model_version", "label": "Model Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "template_version", "label": "Template Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "roster_version", "label": "Roster Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "disposition", "label": "Disposition", "fieldtype": "Select", "options": "Accepted\nQuarantined\nRejected", "reqd": 1},
+    {"fieldname": "disposition_reason", "label": "Disposition Reason", "fieldtype": "Small Text"},
+    {"fieldname": "employee_checkin", "label": "Employee Checkin", "fieldtype": "Link", "options": "Employee Checkin", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "HR Manager", "read": 1, "report": 1},
+    {"role": "System Manager", "read": 1, "report": 1}
+  ],
+  "sort_field": "captured_at",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

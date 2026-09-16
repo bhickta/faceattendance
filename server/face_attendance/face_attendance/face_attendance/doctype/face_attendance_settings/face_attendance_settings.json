@@ -1,0 +1,27 @@
+{
+  "doctype": "DocType",
+  "name": "Face Attendance Settings",
+  "module": "Face Attendance",
+  "issingle": 1,
+  "fields": [
+    {
+      "fieldname": "attendance_authority",
+      "label": "Attendance Authority",
+      "fieldtype": "Select",
+      "options": "Managed Attendance\nExternal Authority",
+      "default": "Managed Attendance",
+      "reqd": 1
+    },
+    {
+      "fieldname": "event_retention_days",
+      "label": "Event Retention (days)",
+      "fieldtype": "Int",
+      "default": "90",
+      "reqd": 1
+    }
+  ],
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1}
+  ],
+  "track_changes": 1
+}

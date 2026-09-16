@@ -1,0 +1,18 @@
+[build-system]
+requires = ["flit_core>=3.9,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "face_attendance"
+version = "0.1.0"
+description = "Offline-first face attendance device management for Frappe HR"
+authors = [{name = "Nishant Bhickta", email = "nishant.bhickta@gmail.com"}]
+requires-python = ">=3.11"
+dependencies = ["cryptography>=42,<46"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
