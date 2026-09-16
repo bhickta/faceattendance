@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">चेहरा उपस्थिति</string>
+    <string name="camera_permission_required">उपस्थिति दर्ज करने के लिए कैमरे की अनुमति आवश्यक है।</string>
+    <string name="camera_starting">कैमरा शुरू हो रहा है…</string>
+    <string name="no_face">कैमरे के सामने केवल एक चेहरा रखें</string>
+    <string name="face_ready">चेहरा मिला — पहचान मॉडल कॉन्फ़िगर नहीं है</string>
+    <string name="not_device_owner">डेवलपमेंट मोड: यह ऐप डिवाइस ओनर नहीं है</string>
+    <string name="device_owner_active">प्रबंधित कियोस्क मोड सक्रिय है</string>
+    <string name="enroll">व्यक्ति का नामांकन</string>
+    <string name="check_in">अंदर</string>
+    <string name="provision_device">उपस्थिति कियोस्क सक्रिय करें</string>
+    <string name="server_url">सर्वर URL (https://…)</string>
+    <string name="activation_token">एक बार उपयोग होने वाला सक्रियण टोकन</string>
+    <string name="activate">कियोस्क सक्रिय करें</string>
+    <string name="activating">सुरक्षित रूप से सक्रिय किया जा रहा है…</string>
+    <string name="activation_failed">सक्रियण विफल: %1$s</string>
+    <string name="device_not_provisioned">व्यवस्थापक को यह कियोस्क सक्रिय करना होगा</string>
+</resources>

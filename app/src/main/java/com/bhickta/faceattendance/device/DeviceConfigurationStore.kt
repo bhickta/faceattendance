@@ -17,6 +17,7 @@ data class DeviceConfiguration(
     val deviceId: String,
     val branchId: String,
     val gateId: String,
+    val directionMode: String,
     val assignmentVersion: String,
 )
 
@@ -34,6 +35,7 @@ class DeviceConfigurationStore(context: Context) {
                 deviceId = requireNotNull(preferences.getString("device_id", null)),
                 branchId = requireNotNull(preferences.getString("branch_id", null)),
                 gateId = requireNotNull(preferences.getString("gate_id", null)),
+                directionMode = requireNotNull(preferences.getString("direction_mode", null)),
                 assignmentVersion = requireNotNull(preferences.getString("assignment_version", null)),
             )
         }.getOrNull()
@@ -48,6 +50,7 @@ class DeviceConfigurationStore(context: Context) {
             .putString("device_id", configuration.deviceId)
             .putString("branch_id", configuration.branchId)
             .putString("gate_id", configuration.gateId)
+            .putString("direction_mode", configuration.directionMode)
             .putString("assignment_version", configuration.assignmentVersion)
             .apply()
     }

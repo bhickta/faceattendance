@@ -9,4 +9,11 @@
     <string name="device_owner_active">Managed kiosk mode active</string>
     <string name="enroll">Enroll person</string>
     <string name="check_in">Check in</string>
+    <string name="provision_device">Provision attendance kiosk</string>
+    <string name="server_url">Server URL (https://…)</string>
+    <string name="activation_token">One-time activation token</string>
+    <string name="activate">Activate kiosk</string>
+    <string name="activating">Activating securely…</string>
+    <string name="activation_failed">Activation failed: %1$s</string>
+    <string name="device_not_provisioned">This kiosk must be provisioned by an administrator</string>
 </resources>
