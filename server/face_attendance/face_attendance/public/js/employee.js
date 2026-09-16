@@ -2,6 +2,19 @@ frappe.ui.form.on("Employee", {
   refresh(frm) {
     if (frm.is_new() || !frm.doc.biometric_person_id) return;
 
+    if (frm.doc.face_attendance_pending_approval) {
+      frm.dashboard.set_headline(
+        __("Temporary employee — approve the face registration to activate."),
+      );
+      frm.add_custom_button(
+        __("Approve Face Registration"),
+        () => approve_face_registration(frm),
+        __("Face Attendance"),
+      );
+      frm.page.set_primary_action(__("Approve Face Registration"), () => approve_face_registration(frm));
+      return;
+    }
+
     frm.add_custom_button(
       __("Register Face from Photo"),
       () => register_face_from_photo(frm),
@@ -43,6 +56,64 @@ frappe.ui.form.on("Employee", {
     );
   },
 });
+
+function approve_face_registration(frm) {
+  const registration = frm.doc.face_attendance_registration;
+  if (!registration) {
+    frappe.msgprint(__("No pending registration is linked to this employee."));
+    return;
+  }
+  const dialog = new frappe.ui.Dialog({
+    title: __("Approve face registration"),
+    fields: [
+      {
+        fieldtype: "Link",
+        fieldname: "company",
+        label: __("Company"),
+        options: "Company",
+        reqd: 1,
+        default: frm.doc.company || frappe.defaults.get_default("company"),
+      },
+      {
+        fieldtype: "Link",
+        fieldname: "gender",
+        label: __("Gender"),
+        options: "Gender",
+        default: frm.doc.gender || "Prefer not to say",
+      },
+      { fieldtype: "Date", fieldname: "date_of_birth", label: __("Date of Birth"), default: frm.doc.date_of_birth },
+      {
+        fieldtype: "Date",
+        fieldname: "date_of_joining",
+        label: __("Date of Joining"),
+        default: frm.doc.date_of_joining || frappe.datetime.get_today(),
+      },
+      {
+        fieldtype: "Data",
+        fieldname: "biometric_person_id",
+        label: __("Biometric Person ID"),
+        default: frm.doc.biometric_person_id,
+      },
+    ],
+    primary_action_label: __("Approve"),
+    primary_action(values) {
+      frappe.call({
+        method: "face_attendance.api.v1.approve_registration",
+        args: Object.assign({ name: registration, employee: frm.doc.name }, values),
+        freeze: true,
+        freeze_message: __("Activating employee…"),
+      }).then(({ message }) => {
+        dialog.hide();
+        frappe.show_alert({
+          message: __("Employee {0} is active.", [message.employee]),
+          indicator: "green",
+        });
+        frm.reload_doc();
+      });
+    },
+  });
+  dialog.show();
+}
 
 function allowed_branches(value) {
   const rows = value || [];
