@@ -88,9 +88,6 @@ class MainActivity : AppCompatActivity() {
         biometricEngine = BiometricEngineFactory.create(this)
         binding.checkInButton.setOnClickListener { punch(AttendanceDirection.IN) }
         binding.checkOutButton.setOnClickListener { punch(AttendanceDirection.OUT) }
-        binding.enrollButton.setOnClickListener {
-            startActivity(Intent(this, EnrollmentActivity::class.java))
-        }
         binding.syncNowButton.setOnClickListener { requestManualSync() }
 
         kioskController = KioskController(this)
@@ -250,7 +247,6 @@ class MainActivity : AppCompatActivity() {
         binding.checkOutButton.visibility = if (mode == "IN") View.GONE else View.VISIBLE
         binding.checkInButton.isEnabled = enabled
         binding.checkOutButton.isEnabled = enabled
-        binding.enrollButton.isEnabled = !processing && configuration != null && biometricEngine.isEnrollmentReady
         if (configuration != null && !ClockTrust.hasValidAuthorization(configuration)) {
             binding.checkInButton.isEnabled = false
             binding.checkOutButton.isEnabled = false

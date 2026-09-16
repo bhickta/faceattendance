@@ -24,7 +24,3 @@ def expire_provisioning_tokens():
         "Device Provisioning Token",
         {"expires_at": ["<", frappe.utils.add_days(frappe.utils.now_datetime(), -7)]},
     )
-    frappe.db.delete(
-        "Biometric Enrollment Token",
-        {"expires_at": ["<", frappe.utils.add_days(frappe.utils.now_datetime(), -7)]},
-    )

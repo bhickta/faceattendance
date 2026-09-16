@@ -218,14 +218,6 @@
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/enrollButton"
-            style="@style/Widget.FaceAttendance.Button.Text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/enroll_with_token" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/syncNowButton"
             style="@style/Widget.FaceAttendance.Button.Text"
             android:layout_width="match_parent"
