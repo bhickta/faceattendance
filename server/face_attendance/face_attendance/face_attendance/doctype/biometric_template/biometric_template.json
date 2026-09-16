@@ -1,0 +1,21 @@
+{
+  "doctype": "DocType",
+  "name": "Biometric Template",
+  "module": "Face Attendance",
+  "autoname": "format:{employee}-{model_version}",
+  "title_field": "employee",
+  "fields": [
+    {"fieldname": "employee", "label": "Employee", "fieldtype": "Link", "options": "Employee", "reqd": 1},
+    {"fieldname": "enabled", "label": "Enabled", "fieldtype": "Check", "default": "1"},
+    {"fieldname": "branch_id", "label": "Branch", "fieldtype": "Data", "description": "Blank makes the template available to every branch."},
+    {"fieldname": "model_version", "label": "Model Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "template_version", "label": "Template Version", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "embedding", "label": "Base64 Float32 Embedding", "fieldtype": "Long Text", "reqd": 1, "no_copy": 1},
+    {"fieldname": "consent_recorded_at", "label": "Consent Recorded At", "fieldtype": "Datetime"}
+  ],
+  "permissions": [
+    {"role": "System Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1},
+    {"role": "HR Manager", "create": 1, "read": 1, "write": 1, "delete": 1, "report": 1}
+  ],
+  "track_changes": 1
+}

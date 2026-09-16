@@ -48,3 +48,9 @@ def _add_indexes():
             ["event", "destination"],
             constraint_name="unique_event_destination",
         )
+    if frappe.db.table_exists("Biometric Template"):
+        frappe.db.add_unique(
+            "Biometric Template",
+            ["employee", "model_version"],
+            constraint_name="unique_employee_biometric_model",
+        )

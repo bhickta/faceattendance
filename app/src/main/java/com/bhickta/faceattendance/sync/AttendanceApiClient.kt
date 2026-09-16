@@ -3,6 +3,9 @@ package com.bhickta.faceattendance.sync
 import com.bhickta.faceattendance.device.DeviceConfiguration
 import com.bhickta.faceattendance.device.DeviceKeyManager
 import com.bhickta.faceattendance.storage.AttendanceEventEntity
+import com.bhickta.faceattendance.vision.BiometricRoster
+import com.bhickta.faceattendance.vision.BiometricRosterStore
+import com.bhickta.faceattendance.vision.FaceTemplate
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -29,6 +32,11 @@ data class SubmissionResult(
     val serverState: ServerState,
 )
 
+data class RosterResult(
+    val changed: Boolean,
+    val roster: BiometricRoster?,
+)
+
 class AttendanceApiClient(
     private val configuration: DeviceConfiguration,
     private val keyManager: DeviceKeyManager,
@@ -53,6 +61,35 @@ class AttendanceApiClient(
             put("device_id", configuration.deviceId)
         }.toString().toByteArray(Charsets.UTF_8)
         return parseServerState(post("sync_state", body))
+    }
+
+    fun syncRoster(currentVersion: String?): RosterResult {
+        val body = JSONObject().apply {
+            put("schema_version", 1)
+            put("device_id", configuration.deviceId)
+            put("roster_version", currentVersion)
+        }.toString().toByteArray(Charsets.UTF_8)
+        val root = post("sync_roster", body)
+        val payload = root.optJSONObject("message") ?: root
+        val changed = payload.getBoolean("changed")
+        if (!changed) return RosterResult(false, null)
+        val templatesJson = payload.getJSONArray("templates")
+        return RosterResult(
+            changed = true,
+            roster = BiometricRoster(
+                version = payload.getString("roster_version"),
+                modelVersion = payload.getString("model_version"),
+                templates = List(templatesJson.length()) { index ->
+                    val item = templatesJson.getJSONObject(index)
+                    FaceTemplate(
+                        personId = item.getString("person_id"),
+                        displayName = item.getString("display_name"),
+                        templateVersion = item.getString("template_version"),
+                        embedding = BiometricRosterStore.decodeEmbedding(item.getString("embedding")),
+                    )
+                },
+            ),
+        )
     }
 
     private fun post(method: String, body: ByteArray): JSONObject {

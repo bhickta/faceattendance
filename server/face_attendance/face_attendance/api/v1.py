@@ -34,6 +34,7 @@ REQUIRED_EVENT_FIELDS = {
     "template_version",
     "roster_version",
 }
+BIOMETRIC_MODEL_VERSION = "intel-face-reidentification-retail-0095-onnx-v1"
 
 
 @frappe.whitelist(methods=["POST"])
@@ -113,6 +114,50 @@ def sync_state():
         "assignment_version": device.assignment_version,
         **_lease(),
     }
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_roster():
+    raw_body = frappe.request.get_data(cache=True)
+    payload = _parse_payload(raw_body)
+    device = _authenticated_device(payload.get("device_id"))
+    _verify_signature(device.public_key, raw_body, frappe.get_request_header("X-Device-Signature"))
+    rows = frappe.db.sql(
+        """select bt.name, bt.modified, bt.template_version, bt.embedding,
+                  e.biometric_person_id, e.employee_name
+           from `tabBiometric Template` bt
+           inner join `tabEmployee` e on e.name = bt.employee
+           where bt.enabled = 1 and bt.model_version = %s
+             and (coalesce(bt.branch_id, '') = '' or bt.branch_id = %s)
+             and coalesce(e.biometric_person_id, '') != ''
+           order by bt.name""",
+        (BIOMETRIC_MODEL_VERSION, device.branch_id),
+        as_dict=True,
+    )
+    version_material = "\n".join(
+        f"{row.name}|{row.modified}|{row.template_version}" for row in rows
+    )
+    roster_version = hashlib.sha256(
+        f"{BIOMETRIC_MODEL_VERSION}\n{version_material}".encode()
+    ).hexdigest()
+    response = {
+        "changed": payload.get("roster_version") != roster_version,
+        "roster_version": roster_version,
+        "model_version": BIOMETRIC_MODEL_VERSION,
+        **_lease(),
+    }
+    if response["changed"]:
+        response["templates"] = [
+            {
+                "person_id": row.biometric_person_id,
+                "display_name": row.employee_name,
+                "template_version": row.template_version,
+                "embedding": row.embedding,
+            }
+            for row in rows
+        ]
+    device.db_set("last_seen", now_datetime(), update_modified=False)
+    return response
 
 
 @frappe.whitelist(methods=["POST"])

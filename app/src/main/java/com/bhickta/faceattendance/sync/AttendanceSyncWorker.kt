@@ -8,6 +8,7 @@ import com.bhickta.faceattendance.device.DeviceConfigurationStore
 import com.bhickta.faceattendance.device.DeviceKeyManager
 import com.bhickta.faceattendance.storage.AttendanceDatabase
 import com.bhickta.faceattendance.storage.SyncState
+import com.bhickta.faceattendance.vision.BiometricRosterStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -23,6 +24,8 @@ class AttendanceSyncWorker(
         val events = dao.pending(AttendanceApiClient.MAX_BATCH_SIZE)
         try {
             val client = AttendanceApiClient(configuration, DeviceKeyManager())
+            val rosterStore = BiometricRosterStore(applicationContext)
+            client.syncRoster(rosterStore.get()?.version).roster?.let(rosterStore::save)
             val submission = if (events.isEmpty()) null else {
                 dao.recordAttempt(events.map { it.eventId }, System.currentTimeMillis())
                 client.submit(events)

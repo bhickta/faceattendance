@@ -7,6 +7,7 @@ import androidx.lifecycle.lifecycleScope
 import com.bhickta.faceattendance.databinding.ActivityProvisioningBinding
 import com.bhickta.faceattendance.device.ActivationClient
 import com.bhickta.faceattendance.device.DeviceConfigurationStore
+import com.bhickta.faceattendance.sync.SyncScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,6 +34,7 @@ class ProvisioningActivity : AppCompatActivity() {
                 }
             }.onSuccess { configuration ->
                 DeviceConfigurationStore(this@ProvisioningActivity).save(configuration)
+                SyncScheduler.requestNow(this@ProvisioningActivity)
                 binding.activationToken.text?.clear()
                 setResult(Activity.RESULT_OK)
                 finish()
