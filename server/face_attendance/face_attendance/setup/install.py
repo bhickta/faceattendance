@@ -10,7 +10,23 @@ CUSTOM_FIELDS = {
             "unique": 1,
             "no_copy": 1,
             "description": "Stable identifier used by Face Attendance devices.",
-        }
+        },
+        {
+            "fieldname": "face_attendance_pending_approval",
+            "label": "Face Registration Pending Approval",
+            "fieldtype": "Check",
+            "read_only": 1,
+            "no_copy": 1,
+            "description": "Set for a temporary employee created by a kiosk self-registration.",
+        },
+        {
+            "fieldname": "face_attendance_registration",
+            "label": "Face Attendance Registration",
+            "fieldtype": "Link",
+            "options": "Face Attendance Registration",
+            "read_only": 1,
+            "no_copy": 1,
+        },
     ],
     "Employee Checkin": [
         {

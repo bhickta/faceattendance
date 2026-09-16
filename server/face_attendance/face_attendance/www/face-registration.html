@@ -68,6 +68,10 @@
         show("warning", "{{ _('Please sign in to register your face.') }}");
         return;
       }
+      if (status.pending_approval) {
+        show("info", "{{ _('Your registration is pending HR approval. You will be able to check in once approved.') }}");
+        return;
+      }
       if (status.registered) {
         show("success", "{{ _('Your face is already registered.') }}");
       }

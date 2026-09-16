@@ -299,15 +299,21 @@ def my_face_status():
     user = frappe.session.user
     if not user or user == "Guest":
         return {"signed_in": False, "self_registration_enabled": False}
-    employee = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    employee = frappe.db.get_value(
+        "Employee",
+        {"user_id": user, "status": ["in", ["Active", "Inactive"]]},
+        ["name", "employee_name", "status", "face_attendance_pending_approval"],
+        as_dict=True,
+    )
+    name = employee.name if employee else None
     return {
         "signed_in": True,
-        "employee": employee,
-        "employee_name": frappe.db.get_value("Employee", employee, "employee_name")
-        if employee
-        else None,
+        "employee": name,
+        "employee_name": employee.employee_name if employee else None,
+        "employee_status": employee.status if employee else None,
+        "pending_approval": bool(employee and employee.face_attendance_pending_approval),
         "registered": bool(
-            employee and frappe.db.exists("Biometric Template", {"employee": employee, "enabled": 1})
+            name and frappe.db.exists("Biometric Template", {"employee": name, "enabled": 1})
         ),
         "self_registration_enabled": bool(
             frappe.db.get_single_value("Face Attendance Settings", "allow_self_registration")
@@ -576,8 +582,15 @@ def submit_self_registration():
         "sample_count": int(payload.get("sample_count") or 0),
         "embedding": embedding,
     }).insert(ignore_permissions=True)
+    temporary_employee = _create_temporary_employee(registration)
+    if temporary_employee:
+        registration.db_set("employee", temporary_employee)
     device.db_set("last_seen", now_datetime(), update_modified=False)
-    return {"status": "pending_approval", "registration": registration.name}
+    return {
+        "status": "pending_approval",
+        "registration": registration.name,
+        "employee": temporary_employee,
+    }
 
 
 @frappe.whitelist(methods=["POST"])
@@ -598,15 +611,22 @@ def approve_registration(
 
     if employee:
         employee_doc = frappe.get_doc("Employee", employee)
+    elif registration.employee and frappe.db.exists("Employee", registration.employee):
+        employee_doc = frappe.get_doc("Employee", registration.employee)
     else:
-        employee_doc = _create_employee_from_registration(
-            registration,
-            company,
-            gender,
-            date_of_birth,
-            date_of_joining,
-            biometric_person_id,
-        )
+        employee_doc = frappe.new_doc("Employee")
+        employee_doc.first_name = registration.full_name
+        employee_doc.employee_name = registration.full_name
+        employee_doc.status = "Inactive"
+    _finalize_employee(
+        employee_doc,
+        registration,
+        company,
+        gender,
+        date_of_birth,
+        date_of_joining,
+        biometric_person_id,
+    )
 
     existing = frappe.db.get_value(
         "Biometric Template",
@@ -652,6 +672,7 @@ def reject_registration(name, reason=None):
     registration = frappe.get_doc("Face Attendance Registration", name)
     if registration.status != "Pending":
         frappe.throw(_("This registration has already been reviewed"))
+    _discard_temporary_employee(registration)
     registration.db_set("status", "Rejected")
     registration.db_set("rejection_reason", (reason or "").strip())
     registration.db_set("reviewed_by", frappe.session.user)
@@ -659,7 +680,62 @@ def reject_registration(name, reason=None):
     return {"status": "Rejected"}
 
 
-def _create_employee_from_registration(
+@frappe.whitelist()
+def pending_registrations():
+    """Pending kiosk self-registrations for the HR portal."""
+    frappe.only_for(["System Manager", "HR Manager"])
+    return frappe.get_all(
+        "Face Attendance Registration",
+        filters={"status": "Pending"},
+        fields=[
+            "name",
+            "full_name",
+            "phone",
+            "captured_at",
+            "device",
+            "branch_id",
+            "employee",
+            "creation",
+        ],
+        order_by="creation asc",
+        limit_page_length=200,
+    )
+
+
+def _default_company():
+    return (
+        frappe.defaults.get_global_default("company")
+        or frappe.db.get_value("Company", {}, "name")
+    )
+
+
+def _create_temporary_employee(registration):
+    """Create an inactive placeholder employee so the person is visible pending approval."""
+    company = _default_company()
+    if not company:
+        return None
+    existing = frappe.db.get_value("Employee", {"biometric_person_id": registration.name}, "name")
+    if existing:
+        return existing
+    employee = frappe.get_doc({
+        "doctype": "Employee",
+        "first_name": registration.full_name,
+        "employee_name": registration.full_name,
+        "gender": "Prefer not to say",
+        "date_of_birth": "1990-01-01",
+        "date_of_joining": today(),
+        "status": "Inactive",
+        "company": company,
+        "cell_number": registration.phone or None,
+        "biometric_person_id": registration.name,
+        "face_attendance_pending_approval": 1,
+        "face_attendance_registration": registration.name,
+    }).insert(ignore_permissions=True)
+    return employee.name
+
+
+def _finalize_employee(
+    employee_doc,
     registration,
     company,
     gender,
@@ -667,28 +743,45 @@ def _create_employee_from_registration(
     date_of_joining,
     biometric_person_id,
 ):
-    company = (
-        company
-        or frappe.defaults.get_global_default("company")
-        or frappe.db.get_value("Company", {}, "name")
-    )
-    if not company:
+    resolved_company = company or employee_doc.get("company") or _default_company()
+    if not resolved_company:
         frappe.throw(_("Set a default Company before approving registrations"))
-    person_id = (biometric_person_id or "").strip() or registration.name
-    if frappe.db.exists("Employee", {"biometric_person_id": person_id}):
+    person_id = (
+        (biometric_person_id or "").strip()
+        or employee_doc.get("biometric_person_id")
+        or registration.name
+    )
+    conflict = frappe.db.get_value(
+        "Employee",
+        {"biometric_person_id": person_id, "name": ["!=", employee_doc.name or ""]},
+        "name",
+    )
+    if conflict:
         frappe.throw(_("Biometric Person ID {0} is already in use").format(person_id))
-    return frappe.get_doc({
-        "doctype": "Employee",
-        "first_name": registration.full_name,
-        "employee_name": registration.full_name,
-        "gender": gender or "Prefer not to say",
-        "date_of_birth": date_of_birth or "1990-01-01",
-        "date_of_joining": date_of_joining or today(),
-        "status": "Active",
-        "company": company,
-        "cell_number": registration.phone or None,
-        "biometric_person_id": person_id,
-    }).insert(ignore_permissions=True)
+
+    employee_doc.first_name = employee_doc.get("first_name") or registration.full_name
+    employee_doc.employee_name = registration.full_name
+    employee_doc.gender = gender or employee_doc.get("gender") or "Prefer not to say"
+    employee_doc.date_of_birth = date_of_birth or employee_doc.get("date_of_birth") or "1990-01-01"
+    employee_doc.date_of_joining = date_of_joining or employee_doc.get("date_of_joining") or today()
+    employee_doc.status = "Active"
+    employee_doc.company = resolved_company
+    employee_doc.biometric_person_id = person_id
+    employee_doc.cell_number = employee_doc.get("cell_number") or registration.phone or None
+    employee_doc.face_attendance_pending_approval = 0
+    employee_doc.face_attendance_registration = registration.name
+    employee_doc.save(ignore_permissions=True)
+    return employee_doc
+
+
+def _discard_temporary_employee(registration):
+    employee = registration.employee
+    if not employee or not frappe.db.exists("Employee", employee):
+        return
+    if not frappe.db.get_value("Employee", employee, "face_attendance_pending_approval"):
+        return
+    registration.db_set("employee", "")
+    frappe.delete_doc("Employee", employee, ignore_permissions=True, force=True)
 
 
 @frappe.whitelist(methods=["POST"])

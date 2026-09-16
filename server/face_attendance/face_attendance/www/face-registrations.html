@@ -1,0 +1,131 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Face registrations") }}{% endblock %}
+
+{% block page_content %}
+<div class="fa-portal" style="max-width: 900px; margin: 32px auto;">
+  <div class="card" style="border-radius: 16px; border: 1px solid #dce4ee;">
+    <div class="card-body p-4">
+      <h3 class="mb-1">{{ _("Pending face registrations") }}</h3>
+      <p class="text-muted">{{ _("People who checked in at a kiosk without an existing employee record. Approve to create the employee.") }}</p>
+
+      {% if not allowed %}
+      <div class="alert alert-warning">{{ _("You need the HR Manager role to review registrations.") }}</div>
+      {% else %}
+      <div id="fa-alert"></div>
+      <div id="fa-list" class="table-responsive">
+        <div class="text-muted">{{ _("Loading…") }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if allowed %}
+<script>
+  const listBox = document.getElementById("fa-list");
+  const alertBox = document.getElementById("fa-alert");
+
+  function show(kind, text) {
+    alertBox.innerHTML = '<div class="alert alert-' + kind + '">' + text + "</div>";
+  }
+
+  function esc(value) {
+    return frappe.utils.escape_html(value == null ? "" : String(value));
+  }
+
+  function render(rows) {
+    if (!rows.length) {
+      listBox.innerHTML = '<div class="text-muted">{{ _("Nothing pending.") }}</div>';
+      return;
+    }
+    let html = '<table class="table table-sm align-middle"><thead><tr>' +
+      '<th>{{ _("Name") }}</th><th>{{ _("Phone") }}</th><th>{{ _("Captured") }}</th>' +
+      '<th>{{ _("Device") }}</th><th></th></tr></thead><tbody>';
+    rows.forEach(function (row) {
+      html += "<tr>" +
+        "<td><b>" + esc(row.full_name) + "</b></td>" +
+        "<td>" + esc(row.phone) + "</td>" +
+        "<td>" + esc(row.captured_at) + "</td>" +
+        "<td>" + esc(row.device) + "</td>" +
+        '<td class="text-end">' +
+        '<button class="btn btn-xs btn-primary" data-approve="' + esc(row.name) + '">{{ _("Approve") }}</button> ' +
+        '<button class="btn btn-xs btn-secondary" data-reject="' + esc(row.name) + '">{{ _("Reject") }}</button>' +
+        "</td></tr>";
+    });
+    html += "</tbody></table>";
+    listBox.innerHTML = html;
+    listBox.querySelectorAll("[data-approve]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        approve(button.getAttribute("data-approve"));
+      });
+    });
+    listBox.querySelectorAll("[data-reject]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        reject(button.getAttribute("data-reject"));
+      });
+    });
+  }
+
+  function load() {
+    frappe.call({
+      method: "face_attendance.api.v1.pending_registrations",
+      callback: function (r) {
+        render(r.message || []);
+      },
+      error: function () {
+        show("danger", "{{ _('Could not load registrations.') }}");
+      },
+    });
+  }
+
+  function approve(name) {
+    frappe.prompt(
+      [
+        { fieldtype: "Link", fieldname: "company", label: "{{ _('Company') }}", options: "Company", reqd: 1, default: frappe.defaults.get_default("company") },
+        { fieldtype: "Link", fieldname: "gender", label: "{{ _('Gender') }}", options: "Gender", default: "Prefer not to say" },
+        { fieldtype: "Date", fieldname: "date_of_birth", label: "{{ _('Date of Birth') }}" },
+        { fieldtype: "Date", fieldname: "date_of_joining", label: "{{ _('Date of Joining') }}", default: frappe.datetime.get_today() },
+      ],
+      function (values) {
+        frappe.call({
+          method: "face_attendance.api.v1.approve_registration",
+          args: Object.assign({ name: name }, values),
+          freeze: true,
+          callback: function (r) {
+            show("success", "{{ _('Employee created:') }} " + esc(r.message.employee));
+            load();
+          },
+          error: function () {
+            show("danger", "{{ _('Approval failed. Check the company and required fields.') }}");
+          },
+        });
+      },
+      "{{ _('Approve registration') }}",
+      "{{ _('Approve') }}"
+    );
+  }
+
+  function reject(name) {
+    frappe.prompt(
+      [{ fieldtype: "Small Text", fieldname: "reason", label: "{{ _('Reason') }}" }],
+      function (values) {
+        frappe.call({
+          method: "face_attendance.api.v1.reject_registration",
+          args: { name: name, reason: values.reason },
+          freeze: true,
+          callback: function () {
+            show("info", "{{ _('Registration rejected.') }}");
+            load();
+          },
+        });
+      },
+      "{{ _('Reject registration') }}",
+      "{{ _('Reject') }}"
+    );
+  }
+
+  load();
+</script>
+{% endif %}
+{% endblock %}

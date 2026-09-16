@@ -11,6 +11,7 @@ doctype_js = {"Employee": "public/js/employee.js"}
 
 portal_menu_items = [
     {"title": "Face registration", "route": "/face-registration"},
+    {"title": "Pending face registrations", "route": "/face-registrations", "role": "HR Manager"},
 ]
 
 after_install = "face_attendance.setup.install.after_install"
