@@ -11,6 +11,7 @@ doctype_js = {"Employee": "public/js/employee.js"}
 
 portal_menu_items = [
     {"title": "Face registration", "route": "/face-registration"},
+    {"title": "My attendance", "route": "/my-attendance"},
     {"title": "Pending face registrations", "route": "/face-registrations", "role": "HR Manager"},
 ]
 
@@ -20,7 +21,10 @@ after_migrate = "face_attendance.setup.install.after_migrate"
 scheduler_events = {
     "cron": {"*/5 * * * *": ["face_attendance.integrations.webhook.process_due_deliveries"]},
     "hourly": ["face_attendance.tasks.reconcile_pending_checkins"],
-    "daily": ["face_attendance.tasks.expire_provisioning_tokens"],
+    "daily": [
+        "face_attendance.tasks.expire_provisioning_tokens",
+        "face_attendance.tasks.purge_expired_events",
+    ],
 }
 
 doc_events = {

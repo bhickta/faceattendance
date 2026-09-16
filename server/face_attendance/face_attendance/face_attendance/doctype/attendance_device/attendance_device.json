@@ -14,6 +14,7 @@
     {"fieldname": "direction_mode", "label": "Direction Mode", "fieldtype": "Select", "options": "IN\nOUT\nSELECT", "default": "SELECT", "reqd": 1},
     {"fieldname": "assignment_version", "label": "Assignment Version", "fieldtype": "Data", "default": "1", "reqd": 1},
     {"fieldname": "last_received_sequence", "label": "Last Contiguous Sequence", "fieldtype": "Int", "default": "0", "read_only": 1},
+    {"fieldname": "app_version", "label": "App Version", "fieldtype": "Data", "read_only": 1},
     {"fieldname": "last_seen", "label": "Last Seen", "fieldtype": "Datetime", "read_only": 1}
   ],
   "permissions": [

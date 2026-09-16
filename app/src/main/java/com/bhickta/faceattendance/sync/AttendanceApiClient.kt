@@ -1,5 +1,6 @@
 package com.bhickta.faceattendance.sync
 
+import com.bhickta.faceattendance.BuildConfig
 import com.bhickta.faceattendance.device.DeviceConfiguration
 import com.bhickta.faceattendance.device.DeviceKeyManager
 import com.bhickta.faceattendance.storage.AttendanceEventEntity
@@ -55,6 +56,7 @@ class AttendanceApiClient(
         val body = JSONObject().apply {
             put("schema_version", 1)
             put("device_id", configuration.deviceId)
+            put("app_version", BuildConfig.VERSION_NAME)
             put("events", JSONArray(events.map(::eventJson)))
         }.toString().toByteArray(Charsets.UTF_8)
 
@@ -66,6 +68,7 @@ class AttendanceApiClient(
         val body = JSONObject().apply {
             put("schema_version", 1)
             put("device_id", configuration.deviceId)
+            put("app_version", BuildConfig.VERSION_NAME)
         }.toString().toByteArray(Charsets.UTF_8)
         return parseServerState(post("sync_state", body))
     }
@@ -74,6 +77,7 @@ class AttendanceApiClient(
         val body = JSONObject().apply {
             put("schema_version", 1)
             put("device_id", configuration.deviceId)
+            put("app_version", BuildConfig.VERSION_NAME)
             put("roster_version", currentVersion)
         }.toString().toByteArray(Charsets.UTF_8)
         val root = post("sync_roster", body)
@@ -110,6 +114,7 @@ class AttendanceApiClient(
         val body = JSONObject().apply {
             put("schema_version", 1)
             put("device_id", configuration.deviceId)
+            put("app_version", BuildConfig.VERSION_NAME)
             put("full_name", fullName)
             if (!phone.isNullOrBlank()) put("phone", phone.trim())
             put("direction", direction)

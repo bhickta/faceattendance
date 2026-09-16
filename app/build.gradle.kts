@@ -12,8 +12,8 @@ android {
         applicationId = "com.bhickta.faceattendance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.2.12"
+        versionCode = 15
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://example.invalid/\"")

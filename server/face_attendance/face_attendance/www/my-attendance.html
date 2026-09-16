@@ -1,0 +1,96 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("My attendance") }}{% endblock %}
+
+{% block page_content %}
+<div class="fa-portal" style="max-width: 820px; margin: 32px auto;">
+  <div class="card" style="border-radius: 16px; border: 1px solid #dce4ee;">
+    <div class="card-body p-4">
+      <h3 class="mb-1">{{ _("My attendance") }}</h3>
+      <p class="text-muted" id="fa-who">{{ _("Loading…") }}</p>
+
+      <div class="row g-2 align-items-end mb-3" id="fa-filters" style="display:none">
+        <div class="col">
+          <label class="small text-muted">{{ _("From") }}</label>
+          <input type="date" id="fa-from" class="form-control" />
+        </div>
+        <div class="col">
+          <label class="small text-muted">{{ _("To") }}</label>
+          <input type="date" id="fa-to" class="form-control" />
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" id="fa-apply">{{ _("Apply") }}</button>
+        </div>
+      </div>
+
+      <div id="fa-alert"></div>
+      <div id="fa-table" class="table-responsive"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const who = document.getElementById("fa-who");
+  const alertBox = document.getElementById("fa-alert");
+  const tableBox = document.getElementById("fa-table");
+  const filters = document.getElementById("fa-filters");
+
+  function show(kind, text) {
+    alertBox.innerHTML = '<div class="alert alert-' + kind + '">' + text + "</div>";
+  }
+
+  function esc(value) {
+    return frappe.utils.escape_html(value == null ? "" : String(value));
+  }
+
+  function render(rows) {
+    if (!rows.length) {
+      tableBox.innerHTML = '<div class="text-muted">{{ _("No attendance in this range.") }}</div>';
+      return;
+    }
+    let html =
+      '<table class="table table-sm"><thead><tr>' +
+      "<th>{{ _('Date') }}</th><th>{{ _('First In') }}</th><th>{{ _('Last Out') }}</th>" +
+      "<th>{{ _('Gross Hours') }}</th><th>{{ _('Punches') }}</th></tr></thead><tbody>";
+    rows.forEach(function (row) {
+      html +=
+        "<tr><td>" + esc((row.day || "").toString().slice(0, 10)) + "</td>" +
+        "<td>" + esc(row.first_in) + "</td>" +
+        "<td>" + esc(row.last_out) + "</td>" +
+        "<td>" + esc(row.gross_hours) + "</td>" +
+        "<td>" + esc(row.punches) + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    tableBox.innerHTML = html;
+  }
+
+  function load() {
+    const args = {};
+    if (document.getElementById("fa-from").value) args.from_date = document.getElementById("fa-from").value;
+    if (document.getElementById("fa-to").value) args.to_date = document.getElementById("fa-to").value;
+    frappe.call({
+      method: "face_attendance.api.insights.my_attendance",
+      args: args,
+      callback: function (r) {
+        const data = r.message || {};
+        who.textContent = data.employee_name
+          ? "{{ _('Attendance for') }} " + data.employee_name
+          : "";
+        filters.style.display = "flex";
+        render(data.rows || []);
+      },
+      error: function (err) {
+        who.textContent = "";
+        let text = "{{ _('Could not load your attendance.') }}";
+        if (err && err.status === 417) {
+          text = "{{ _('No employee record is linked to your account. Please contact HR.') }}";
+        }
+        show("warning", text);
+      },
+    });
+  }
+
+  document.getElementById("fa-apply").addEventListener("click", load);
+  load();
+</script>
+{% endblock %}

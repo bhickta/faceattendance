@@ -347,7 +347,7 @@ def sync_state():
     payload = _parse_payload(raw_body)
     device = _authenticated_device(payload.get("device_id"))
     _verify_signature(device.public_key, raw_body, frappe.get_request_header("X-Device-Signature"))
-    device.db_set("last_seen", now_datetime(), update_modified=False)
+    _touch_device(device, payload)
     return {
         "device_id": device.device_id,
         "branch_id": device.branch_id,
@@ -405,7 +405,7 @@ def sync_roster():
             }
             for row in rows
         ]
-    device.db_set("last_seen", now_datetime(), update_modified=False)
+    _touch_device(device, payload)
     return response
 
 
@@ -495,7 +495,7 @@ def submit_self_registration():
     temporary_employee = _create_temporary_employee(registration)
     if temporary_employee:
         registration.db_set("employee", temporary_employee)
-    device.db_set("last_seen", now_datetime(), update_modified=False)
+    _touch_device(device, payload)
     return {
         "status": "pending_approval",
         "registration": registration.name,
@@ -721,7 +721,7 @@ def submit_events():
             })
 
     _advance_contiguous_sequence(device)
-    device.db_set("last_seen", now_datetime(), update_modified=False)
+    _touch_device(device, payload)
     return {"results": results, **_lease()}
 
 
@@ -786,6 +786,14 @@ def _validate_public_key(public_key_base64):
         frappe.throw(_("Invalid public key"))
     if not isinstance(public_key, ec.EllipticCurvePublicKey) or public_key.curve.name != "secp256r1":
         frappe.throw(_("Public key must use the P-256 elliptic curve"))
+
+
+def _touch_device(device, payload=None):
+    """Record a device heartbeat, including the reported app version."""
+    device.db_set("last_seen", now_datetime(), update_modified=False)
+    app_version = str((payload or {}).get("app_version") or "").strip()[:40]
+    if app_version and device.get("app_version") != app_version:
+        device.db_set("app_version", app_version, update_modified=False)
 
 
 def _authenticated_device(device_id):
