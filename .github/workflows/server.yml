@@ -34,3 +34,7 @@ jobs:
           for path in Path("server/face_attendance").rglob("*.json"):
               json.loads(path.read_text())
           PY
+      - name: Validate Desk JavaScript
+        run: |
+          node --check server/face_attendance/face_attendance/public/js/employee.js
+          node --check server/face_attendance/face_attendance/face_attendance/doctype/attendance_device/attendance_device.js

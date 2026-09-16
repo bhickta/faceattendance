@@ -19,12 +19,12 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Test and build ARM64 debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: face-attendance-debug-${{ github.sha }}
+          name: face-attendance-arm64-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -67,6 +67,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "FaceAttendance-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "FaceAttendance-${GITHUB_REF_NAME}-arm64.apk"
+          sha256sum "FaceAttendance-${GITHUB_REF_NAME}-arm64.apk" > "FaceAttendance-${GITHUB_REF_NAME}-arm64.apk.sha256"
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
-          gh release upload "$GITHUB_REF_NAME" "FaceAttendance-${GITHUB_REF_NAME}.apk" --clobber
+          gh release upload "$GITHUB_REF_NAME" \
+            "FaceAttendance-${GITHUB_REF_NAME}-arm64.apk" \
+            "FaceAttendance-${GITHUB_REF_NAME}-arm64.apk.sha256" \
+            --clobber
