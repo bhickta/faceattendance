@@ -51,3 +51,13 @@ The repository records the publishers' artifact licenses and checksums; this is 
 Before selling in a jurisdiction, counsel must review biometric/privacy obligations and the training
 data provenance. Employee consent or another valid legal basis, retention/deletion rules, access
 controls, an appeal path, and a non-biometric fallback remain mandatory product requirements.
+
+## Enrollment utility
+
+`tools/enroll_face.py` performs local multi-image enrollment with the same recognition model and
+three-point alignment used on Android. It requires at least five images, rejects multiple/small,
+dark, overexposed, blurry or mutually inconsistent samples, and prints a normalized base64 template
+for the Frappe `Biometric Template` record. Images are read locally and are never transmitted.
+
+Enrollment detection uses OpenCV Zoo YuNet `face_detection_yunet_2023mar.onnx`, whose directory is
+MIT licensed. Distributed SHA-256: `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4`.
