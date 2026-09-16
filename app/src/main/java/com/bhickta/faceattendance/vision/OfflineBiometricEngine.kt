@@ -195,9 +195,11 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
             val blob: Mat
             try {
                 Imgproc.cvtColor(crop, bgr, Imgproc.COLOR_RGBA2BGR)
+                // The pinned MiniFASNet checkpoints expect raw 0-255 BGR input:
+                // upstream's ToTensor returns img.float() without dividing by 255.
                 blob = Dnn.blobFromImage(
                     bgr,
-                    1.0 / 255.0,
+                    1.0,
                     Size(80.0, 80.0),
                     Scalar(0.0),
                     false,
