@@ -7,7 +7,8 @@
   "fields": [
     {"fieldname": "employee", "label": "Employee", "fieldtype": "Link", "options": "Employee", "reqd": 1},
     {"fieldname": "enabled", "label": "Enabled", "fieldtype": "Check", "default": "1"},
-    {"fieldname": "branch_id", "label": "Branch", "fieldtype": "Data", "description": "Blank makes the template available to every branch."},
+    {"fieldname": "allowed_branches", "label": "Allowed Branches", "fieldtype": "Table", "options": "Allowed Branch", "description": "Leave empty to make this employee available on every device."},
+    {"fieldname": "branch_id", "label": "Legacy Branch", "fieldtype": "Data", "hidden": 1, "read_only": 1},
     {"fieldname": "model_version", "label": "Model Version", "fieldtype": "Data", "reqd": 1},
     {"fieldname": "template_version", "label": "Template Version", "fieldtype": "Data", "reqd": 1},
     {"fieldname": "embedding", "label": "Base64 Float32 Embedding", "fieldtype": "Long Text", "reqd": 1, "no_copy": 1},

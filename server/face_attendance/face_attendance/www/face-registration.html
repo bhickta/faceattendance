@@ -1,0 +1,144 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Face registration") }}{% endblock %}
+
+{% block page_content %}
+<div class="fa-portal" style="max-width: 540px; margin: 32px auto;">
+  <div class="card" style="border-radius: 16px; border: 1px solid #dce4ee;">
+    <div class="card-body p-4">
+      <h3 class="mb-1">{{ _("Face registration") }}</h3>
+      <p class="text-muted mb-3">
+        {{ _("Register your face once so any attendance kiosk can recognise you.") }}
+      </p>
+      <div id="fa-alert"></div>
+
+      <div id="fa-form" style="display: none;">
+        <label class="small text-muted">{{ _("Photograph") }}</label>
+        <input type="file" id="fa-files" accept="image/*" capture="user" class="form-control" />
+        <div class="form-text">{{ _("A clear, front-facing photo. Up to 5 photos improve accuracy.") }}</div>
+
+        <label class="d-flex align-items-center mt-3" style="gap: 8px;">
+          <input type="checkbox" id="fa-consent" />
+          <span>{{ _("I consent to biometric enrollment for attendance.") }}</span>
+        </label>
+
+        <button class="btn btn-primary w-100 mt-3" id="fa-submit">
+          {{ _("Register my face") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const alertBox = document.getElementById("fa-alert");
+  const form = document.getElementById("fa-form");
+
+  function show(kind, text) {
+    alertBox.innerHTML = '<div class="alert alert-' + kind + '">' + text + "</div>";
+  }
+
+  function downscale(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const image = new Image();
+        image.onload = function () {
+          const max = 1280;
+          const scale = Math.min(1, max / Math.max(image.width, image.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(image.width * scale);
+          canvas.height = Math.round(image.height * scale);
+          canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.9).split(",")[1]);
+        };
+        image.onerror = reject;
+        image.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  frappe.call({
+    method: "face_attendance.api.v1.my_face_status",
+    callback: function (r) {
+      const status = r.message || {};
+      if (!status.signed_in) {
+        show("warning", "{{ _('Please sign in to register your face.') }}");
+        return;
+      }
+      if (status.registered) {
+        show("success", "{{ _('Your face is already registered.') }}");
+      }
+      if (!status.self_registration_enabled) {
+        show("warning", "{{ _('Self-registration is disabled. Please contact your HR team.') }}");
+        return;
+      }
+      if (!status.employee) {
+        show("warning", "{{ _('No active employee record is linked to your account.') }}");
+        return;
+      }
+      form.style.display = "block";
+    },
+    error: function () {
+      show("danger", "{{ _('Could not load your registration status.') }}");
+    },
+  });
+
+  document.getElementById("fa-files").addEventListener("change", function (event) {
+    const files = Array.from(event.target.files || []).slice(0, 5);
+    window.faPhotos = files;
+    if (files.length) {
+      show("info", files.length + " {{ _('photo(s) selected.') }}");
+    }
+  });
+
+  document.getElementById("fa-submit").addEventListener("click", function () {
+    const consent = document.getElementById("fa-consent").checked;
+    if (!consent) {
+      show("warning", "{{ _('Please confirm consent before registering.') }}");
+      return;
+    }
+    const files = window.faPhotos || [];
+    if (!files.length) {
+      show("warning", "{{ _('Choose at least one photograph.') }}");
+      return;
+    }
+    const button = document.getElementById("fa-submit");
+    button.disabled = true;
+    show("info", "{{ _('Generating your template…') }}");
+    Promise.all(files.map(downscale))
+      .then(function (images) {
+        frappe.call({
+          method: "face_attendance.api.v1.register_my_face_from_photo",
+          type: "POST",
+          args: { images: images, consent_confirmed: 1 },
+          callback: function (r) {
+            button.disabled = false;
+            const message = r.message || {};
+            show(
+              "success",
+              "{{ _('Registered successfully.') }} (" + (message.samples || 1) + ")"
+            );
+            form.style.display = "none";
+          },
+          error: function (err) {
+            button.disabled = false;
+            let text = "{{ _('Registration failed.') }}";
+            try {
+              text += " " + JSON.parse(err.responseText)._server_messages;
+            } catch (e) {
+              /* ignore */
+            }
+            show("danger", text);
+          },
+        });
+      })
+      .catch(function () {
+        button.disabled = false;
+        show("danger", "{{ _('Could not read the selected photo.') }}");
+      });
+  });
+</script>
+{% endblock %}

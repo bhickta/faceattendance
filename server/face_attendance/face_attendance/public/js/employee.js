@@ -9,6 +9,12 @@ frappe.ui.form.on("Employee", {
     );
 
     frm.add_custom_button(
+      __("Register Face from Profile Picture"),
+      () => register_face_from_profile_picture(frm),
+      __("Face Attendance"),
+    );
+
+    frm.add_custom_button(
       __("Issue Face Enrollment Token"),
       () => {
         frappe.confirm(
@@ -38,6 +44,47 @@ frappe.ui.form.on("Employee", {
   },
 });
 
+function allowed_branches(value) {
+  const rows = value || [];
+  return rows.map((row) => (typeof row === "string" ? row : row.branch)).filter(Boolean);
+}
+
+function show_registration_result(message) {
+  const branches = (message.branches || []).length
+    ? message.branches.map((branch) => frappe.utils.escape_html(branch)).join(", ")
+    : __("every device");
+  frappe.msgprint({
+    title: __("Face registered"),
+    indicator: "green",
+    message: __(
+      "Template <b>{0}</b> created from {1} photo(s) for <b>{2}</b> enabled device(s).",
+      [
+        frappe.utils.escape_html(message.template_version),
+        message.samples,
+        message.device_count,
+      ],
+    ) + "<br>" + __("Available at: {0}", [branches]),
+  });
+}
+
+function register_face_from_profile_picture(frm) {
+  if (!frm.doc.image) {
+    frappe.msgprint(__("Attach a profile picture to the Employee first."));
+    return;
+  }
+  frappe.confirm(
+    __("Register this employee's face from the profile picture? Confirm that the employee has consented."),
+    () => {
+      frappe.call({
+        method: "face_attendance.api.v1.register_face_from_profile_picture",
+        args: { employee: frm.doc.name, consent_confirmed: true },
+        freeze: true,
+        freeze_message: __("Generating biometric template…"),
+      }).then(({ message }) => show_registration_result(message));
+    },
+  );
+}
+
 function register_face_from_photo(frm) {
   const uploaded = [];
 
@@ -53,10 +100,11 @@ function register_face_from_photo(frm) {
         )}</div>`,
       },
       {
-        fieldtype: "Data",
-        fieldname: "branch_id",
-        label: __("Branch"),
-        description: __("Leave blank to distribute this employee to every device."),
+        fieldtype: "Table MultiSelect",
+        fieldname: "allowed_branches",
+        label: __("Allowed Branches"),
+        options: "Allowed Branch",
+        description: __("Leave empty to allow this employee on every device."),
       },
       {
         fieldtype: "Check",
@@ -79,25 +127,14 @@ function register_face_from_photo(frm) {
         args: {
           employee: frm.doc.name,
           files: uploaded,
-          branch_id: values.branch_id || "",
+          branches: allowed_branches(values.allowed_branches),
           consent_confirmed: true,
         },
         freeze: true,
         freeze_message: __("Generating biometric template…"),
       }).then(({ message }) => {
         dialog.hide();
-        frappe.msgprint({
-          title: __("Face registered"),
-          indicator: "green",
-          message: __(
-            "Template <b>{0}</b> created from {1} photo(s). {2} enabled device(s) will pick it up on the next sync.",
-            [
-              frappe.utils.escape_html(message.template_version),
-              message.samples,
-              message.device_count,
-            ],
-          ),
-        });
+        show_registration_result(message);
       });
     },
   });

@@ -9,6 +9,10 @@ required_apps = ["hrms"]
 
 doctype_js = {"Employee": "public/js/employee.js"}
 
+portal_menu_items = [
+    {"title": "Face registration", "route": "/face-registration"},
+]
+
 after_install = "face_attendance.setup.install.after_install"
 after_migrate = "face_attendance.setup.install.after_migrate"
 

@@ -88,37 +88,102 @@ def create_enrollment_token(employee, consent_confirmed=False, validity_minutes=
     }
 
 
-@frappe.whitelist(methods=["POST"])
-def register_face_from_photo(employee, files, branch_id=None, consent_confirmed=False):
-    """Create or replace an employee template from uploaded photographs.
-
-    Only HR Manager or System Manager may enrol, consent is mandatory, and the
-    resulting template is distributed to every device of the chosen branch
-    (blank branch means every device).
-    """
-    frappe.only_for(["System Manager", "HR Manager"])
+def _require_consent(consent_confirmed):
     if str(consent_confirmed).lower() not in {"1", "true", "yes"}:
         frappe.throw(_("Employee consent must be confirmed before enrollment"))
+
+
+def _load_vision():
     try:
         from face_attendance import vision
     except ImportError:
         frappe.throw(_("Photo enrollment requires the opencv-python-headless package on the server"))
+    return vision
 
-    employee_doc = frappe.get_doc("Employee", employee)
-    if not employee_doc.biometric_person_id:
-        frappe.throw(_("Employee must have a Biometric Person ID"))
 
-    names = _parse_file_names(files)
-    if not names:
-        frappe.throw(_("Upload at least one photograph"))
-    if len(names) > MAXIMUM_ENROLLMENT_PHOTOS:
-        frappe.throw(_("Upload at most {0} photographs").format(MAXIMUM_ENROLLMENT_PHOTOS))
+def _parse_base64_images(images):
+    if images is None:
+        return []
+    if isinstance(images, str):
+        try:
+            images = json.loads(images)
+        except ValueError:
+            images = [images]
+    if not isinstance(images, list | tuple):
+        frappe.throw(_("images must be a list of base64 photographs"))
+    cleaned = []
+    for value in images:
+        value = str(value).strip()
+        if value.startswith("data:") and "," in value:
+            value = value.split(",", 1)[1]
+        if value:
+            cleaned.append(value)
+    return cleaned
 
-    images = []
-    for name in names:
+
+def _collect_images(files, images):
+    collected = []
+    for name in _parse_file_names(files):
         if not frappe.db.exists("File", name):
             frappe.throw(_("Uploaded file {0} was not found").format(name))
-        images.append(frappe.get_doc("File", name).get_content())
+        collected.append(frappe.get_doc("File", name).get_content())
+    for index, encoded in enumerate(_parse_base64_images(images)):
+        try:
+            collected.append(base64.b64decode(encoded, validate=True))
+        except (TypeError, ValueError):
+            frappe.throw(_("Photo {0} could not be decoded").format(index + 1))
+    return collected
+
+
+def _parse_branches(branches, branch_id):
+    raw = []
+    if branches is not None:
+        if isinstance(branches, str):
+            try:
+                branches = json.loads(branches)
+            except ValueError:
+                branches = branches.split(",")
+        if isinstance(branches, (list | tuple)):
+            for item in branches:
+                value = item.get("branch") if isinstance(item, dict) else item
+                raw.append(str(value).strip() if value else "")
+        else:
+            raw.append(str(branches).strip())
+    if branch_id:
+        raw.append(str(branch_id).strip())
+    unique = []
+    for value in raw:
+        if value and value not in unique:
+            unique.append(value)
+    return unique
+
+
+def _ensure_branch(name):
+    name = (name or "").strip()
+    if not name:
+        return None
+    if not frappe.db.exists("Branch", name):
+        frappe.get_doc({"doctype": "Branch", "branch": name}).insert(ignore_permissions=True)
+    return name
+
+
+def _profile_picture_images(employee_doc):
+    if not employee_doc.image:
+        frappe.throw(_("Employee has no profile picture"))
+    file_name = frappe.db.get_value("File", {"file_url": employee_doc.image}, "name")
+    if not file_name:
+        frappe.throw(_("Profile picture file was not found"))
+    return [frappe.get_doc("File", file_name).get_content()]
+
+
+def _register_face(employee_doc, images, branches):
+    vision = _load_vision()
+    if not employee_doc.biometric_person_id:
+        frappe.throw(_("Employee must have a Biometric Person ID"))
+    if not images:
+        frappe.throw(_("Provide at least one photograph"))
+    if len(images) > MAXIMUM_ENROLLMENT_PHOTOS:
+        frappe.throw(_("Provide at most {0} photographs").format(MAXIMUM_ENROLLMENT_PHOTOS))
 
     result = vision.build_template(images)
     embedding = vision.decode_embedding(result["embedding"])
@@ -142,6 +207,8 @@ def register_face_from_photo(employee, files, branch_id=None, consent_confirmed=
                 _("Face appears to be enrolled already for employee {0}").format(candidate.employee)
             )
 
+    allowed = [branch for branch in (_ensure_branch(name) for name in branches) if branch]
+
     existing = frappe.db.get_value(
         "Biometric Template",
         {"employee": employee_doc.name, "model_version": vision.MODEL_VERSION},
@@ -150,29 +217,101 @@ def register_face_from_photo(employee, files, branch_id=None, consent_confirmed=
     template = frappe.get_doc("Biometric Template", existing) if existing else frappe.new_doc(
         "Biometric Template"
     )
-    branch = (branch_id or "").strip()
-    template.update({
-        "employee": employee_doc.name,
-        "enabled": 1,
-        "branch_id": branch,
-        "model_version": vision.MODEL_VERSION,
-        "template_version": result["template_version"],
-        "embedding": result["embedding"],
-        "consent_recorded_at": now_datetime(),
-    })
+    template.employee = employee_doc.name
+    template.enabled = 1
+    template.branch_id = ""
+    template.model_version = vision.MODEL_VERSION
+    template.template_version = result["template_version"]
+    template.embedding = result["embedding"]
+    template.consent_recorded_at = now_datetime()
+    template.set("allowed_branches", [])
+    for branch in allowed:
+        template.append("allowed_branches", {"branch": branch})
     template.save(ignore_permissions=True)
 
     device_filters = {"enabled": 1}
-    if branch:
-        device_filters["branch_id"] = branch
+    if allowed:
+        device_filters["branch_id"] = ["in", allowed]
     return {
         "employee": employee_doc.name,
         "employee_name": employee_doc.employee_name,
         "model_version": vision.MODEL_VERSION,
         "template_version": result["template_version"],
         "samples": result["samples"],
-        "branch_id": branch,
+        "branches": allowed,
         "device_count": frappe.db.count("Attendance Device", device_filters),
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def register_face_from_photo(
+    employee,
+    files=None,
+    images=None,
+    branches=None,
+    branch_id=None,
+    consent_confirmed=False,
+):
+    """Create or replace an employee template from uploaded photographs."""
+    frappe.only_for(["System Manager", "HR Manager"])
+    _require_consent(consent_confirmed)
+    employee_doc = frappe.get_doc("Employee", employee)
+    return _register_face(
+        employee_doc,
+        _collect_images(files, images),
+        _parse_branches(branches, branch_id),
+    )
+
+
+@frappe.whitelist(methods=["POST"])
+def register_face_from_profile_picture(
+    employee, branches=None, branch_id=None, consent_confirmed=False
+):
+    """Create or replace an employee template from the Employee profile picture."""
+    frappe.only_for(["System Manager", "HR Manager"])
+    _require_consent(consent_confirmed)
+    employee_doc = frappe.get_doc("Employee", employee)
+    return _register_face(
+        employee_doc,
+        _profile_picture_images(employee_doc),
+        _parse_branches(branches, branch_id),
+    )
+
+
+@frappe.whitelist(methods=["POST"])
+def register_my_face_from_photo(files=None, images=None, consent_confirmed=False):
+    """Portal self-registration for the signed-in employee."""
+    user = frappe.session.user
+    if not user or user == "Guest":
+        frappe.throw(_("Sign in to register your face"), frappe.AuthenticationError)
+    if not frappe.db.get_single_value("Face Attendance Settings", "allow_self_registration"):
+        frappe.throw(_("Self-registration is disabled. Contact your HR team."))
+    _require_consent(consent_confirmed)
+    employee = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    if not employee:
+        frappe.throw(_("No active employee is linked to your account"))
+    employee_doc = frappe.get_doc("Employee", employee)
+    return _register_face(employee_doc, _collect_images(files, images), [])
+
+
+@frappe.whitelist()
+def my_face_status():
+    user = frappe.session.user
+    if not user or user == "Guest":
+        return {"signed_in": False, "self_registration_enabled": False}
+    employee = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    return {
+        "signed_in": True,
+        "employee": employee,
+        "employee_name": frappe.db.get_value("Employee", employee, "employee_name")
+        if employee
+        else None,
+        "registered": bool(
+            employee and frappe.db.exists("Biometric Template", {"employee": employee, "enabled": 1})
+        ),
+        "self_registration_enabled": bool(
+            frappe.db.get_single_value("Face Attendance Settings", "allow_self_registration")
+        ),
     }
 
 
@@ -248,10 +387,16 @@ def sync_roster():
                   e.biometric_person_id, e.employee_name
            from `tabBiometric Template` bt
            inner join `tabEmployee` e on e.name = bt.employee
-           where bt.enabled = 1 and bt.model_version = %s
-             and (coalesce(bt.branch_id, '') = '' or bt.branch_id = %s)
-             and coalesce(e.biometric_person_id, '') != ''
-           order by bt.name""",
+            where bt.enabled = 1 and bt.model_version = %s
+              and coalesce(e.biometric_person_id, '') != ''
+              and (
+                not exists (select 1 from `tabAllowed Branch` ab where ab.parent = bt.name)
+                or exists (
+                  select 1 from `tabAllowed Branch` ab
+                  where ab.parent = bt.name and ab.branch = %s
+                )
+              )
+            order by bt.name""",
         (BIOMETRIC_MODEL_VERSION, device.branch_id),
         as_dict=True,
     )
@@ -331,15 +476,17 @@ def submit_enrollment():
     template = frappe.get_doc("Biometric Template", existing) if existing else frappe.new_doc(
         "Biometric Template"
     )
-    template.update({
-        "employee": token_doc.employee,
-        "enabled": 1,
-        "branch_id": device.branch_id,
-        "model_version": BIOMETRIC_MODEL_VERSION,
-        "template_version": template_version,
-        "embedding": embedding,
-        "consent_recorded_at": token_doc.consent_recorded_at,
-    })
+    template.employee = token_doc.employee
+    template.enabled = 1
+    template.branch_id = ""
+    template.model_version = BIOMETRIC_MODEL_VERSION
+    template.template_version = template_version
+    template.embedding = embedding
+    template.consent_recorded_at = token_doc.consent_recorded_at
+    template.set("allowed_branches", [])
+    branch = _ensure_branch(device.branch_id)
+    if branch:
+        template.append("allowed_branches", {"branch": branch})
     template.save(ignore_permissions=True)
     token_doc.db_set("used_at", now_datetime(), update_modified=False)
     return {

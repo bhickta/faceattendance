@@ -33,6 +33,32 @@ def after_install():
 def after_migrate():
     create_custom_fields(CUSTOM_FIELDS, update=True)
     _add_indexes()
+    _migrate_branch_assignments()
+
+
+def _migrate_branch_assignments():
+    """Move legacy single branch_id values onto the Allowed Branch child table."""
+    if not frappe.db.table_exists("Biometric Template"):
+        return
+    if not frappe.db.table_exists("Allowed Branch"):
+        return
+    rows = frappe.get_all(
+        "Biometric Template",
+        filters={"branch_id": ["is", "set"]},
+        fields=["name", "branch_id"],
+    )
+    for row in rows:
+        branch = (row.branch_id or "").strip()
+        if not branch:
+            continue
+        if frappe.db.exists("Allowed Branch", {"parent": row.name, "branch": branch}):
+            continue
+        if not frappe.db.exists("Branch", branch):
+            frappe.get_doc({"doctype": "Branch", "branch": branch}).insert(ignore_permissions=True)
+        template = frappe.get_doc("Biometric Template", row.name)
+        template.append("allowed_branches", {"branch": branch})
+        template.branch_id = ""
+        template.save(ignore_permissions=True)
 
 
 def _add_indexes():

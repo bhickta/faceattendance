@@ -18,6 +18,12 @@
       "fieldtype": "Int",
       "default": "90",
       "reqd": 1
+    },
+    {
+      "fieldname": "allow_self_registration",
+      "label": "Allow Employees to Self-Register from the Portal",
+      "fieldtype": "Check",
+      "default": "0"
     }
   ],
   "permissions": [
