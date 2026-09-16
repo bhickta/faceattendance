@@ -3,7 +3,8 @@ import hashlib
 import json
 import secrets
 import time
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import frappe
@@ -235,14 +236,8 @@ def _ingest_event(device, event):
     if not employee:
         return {"event_id": event_id, "status": "rejected", "reason": "unknown_person"}
 
-    disposition = "Accepted"
-    reason = None
-    if event["timestamp_confidence"] != "TRUSTED":
-        disposition, reason = "Quarantined", "untrusted_timestamp"
-    elif str(event["assignment_version"]) != str(device.assignment_version):
-        disposition, reason = "Quarantined", "stale_assignment"
-
     captured_at = _captured_at(event["captured_at"])
+    disposition, reason = _disposition(device, event, captured_at)
     doc = frappe.get_doc({
         "doctype": "Face Attendance Event",
         "event_id": event_id,
@@ -280,9 +275,15 @@ def _ingest_event(device, event):
 
 
 def _validate_event(device, event):
+    event_id = str(event["event_id"])
+    if str(uuid.UUID(event_id)) != event_id.lower():
+        raise ValueError("event_id must be a canonical UUID")
     if event["device_id"] != device.device_id:
         raise ValueError("Device mismatch")
-    if event["branch_id"] != device.branch_id or event["gate_id"] != device.gate_id:
+    current_assignment = str(event["assignment_version"]) == str(device.assignment_version)
+    if current_assignment and (
+        event["branch_id"] != device.branch_id or event["gate_id"] != device.gate_id
+    ):
         raise ValueError("Gate assignment mismatch")
     if event["event_type"] not in {"IN", "OUT"}:
         raise ValueError("Invalid event type")
@@ -290,6 +291,12 @@ def _validate_event(device, event):
         raise ValueError("Invalid device sequence")
     if not 0 <= float(event["match_score"]) <= 1 or not 0 <= float(event["liveness_score"]) <= 1:
         raise ValueError("Invalid biometric score")
+    for field in ("person_id", "branch_id", "gate_id", "assignment_version", "boot_id"):
+        if not str(event[field]).strip() or len(str(event[field])) > 140:
+            raise ValueError(f"Invalid {field}")
+    for field in ("model_version", "template_version", "roster_version"):
+        if not str(event[field]).strip() or len(str(event[field])) > 140:
+            raise ValueError(f"Invalid {field}")
     duplicate_sequence = frappe.db.exists(
         "Face Attendance Event",
         {"device": device.name, "device_sequence": int(event["device_sequence"])},
@@ -303,6 +310,19 @@ def _captured_at(value):
     if parsed.tzinfo is None:
         raise ValueError("captured_at must include a timezone")
     return parsed.astimezone(ZoneInfo(get_system_timezone())).replace(tzinfo=None)
+
+
+def _disposition(device, event, captured_at):
+    now = now_datetime()
+    if event["timestamp_confidence"] != "TRUSTED":
+        return "Quarantined", "untrusted_timestamp"
+    if captured_at > now + timedelta(minutes=5):
+        return "Quarantined", "future_timestamp"
+    if captured_at < now - timedelta(days=8):
+        return "Quarantined", "outside_offline_window"
+    if str(event["assignment_version"]) != str(device.assignment_version):
+        return "Quarantined", "stale_assignment"
+    return "Accepted", None
 
 
 def _managed_attendance():
