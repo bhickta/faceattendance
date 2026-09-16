@@ -4,7 +4,10 @@
     <string name="camera_permission_required">Camera permission is required to identify attendees.</string>
     <string name="camera_starting">Starting camera…</string>
     <string name="no_face">Position one face inside the camera view</string>
-    <string name="face_ready">Face detected — recognition model not configured</string>
+    <string name="face_ready">Face detected — select check in or check out</string>
+    <string name="look_straight">Look straight at the camera</string>
+    <string name="turn_head_left">Turn your head to the left</string>
+    <string name="turn_head_right">Turn your head to the right</string>
     <string name="not_device_owner">Development mode: this app is not Device Owner</string>
     <string name="device_owner_active">Managed kiosk mode active</string>
     <string name="enroll">Enroll person</string>

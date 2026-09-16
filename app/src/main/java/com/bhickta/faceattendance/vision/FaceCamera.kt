@@ -22,7 +22,7 @@ import java.util.concurrent.Executors
 class FaceCamera(
     private val activity: AppCompatActivity,
     private val previewView: PreviewView,
-    private val onFaceCountChanged: (Int) -> Unit,
+    private val onFaceObserved: (FaceObservation) -> Unit,
 ) : AutoCloseable {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val detector = FaceDetection.getClient(
@@ -57,7 +57,14 @@ class FaceCamera(
 
                 val input = InputImage.fromMediaImage(mediaImage, proxy.imageInfo.rotationDegrees)
                 detector.process(input)
-                    .addOnSuccessListener { faces -> onFaceCountChanged(faces.size) }
+                    .addOnSuccessListener { faces ->
+                        onFaceObserved(
+                            FaceObservation(
+                                faceCount = faces.size,
+                                yawDegrees = faces.singleOrNull()?.headEulerAngleY,
+                            ),
+                        )
+                    }
                     .addOnCompleteListener { proxy.close() }
             }
 
@@ -116,3 +123,8 @@ class FaceCamera(
         analysisExecutor.shutdown()
     }
 }
+
+data class FaceObservation(
+    val faceCount: Int,
+    val yawDegrees: Float?,
+)

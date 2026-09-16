@@ -24,10 +24,16 @@ import com.bhickta.faceattendance.sync.SyncScheduler
 import com.bhickta.faceattendance.vision.BiometricEngine
 import com.bhickta.faceattendance.vision.BiometricEngineFactory
 import com.bhickta.faceattendance.vision.BiometricResult
+import com.bhickta.faceattendance.vision.ActiveLivenessChallenge
+import com.bhickta.faceattendance.vision.ChallengeUpdate
 import com.bhickta.faceattendance.vision.FaceCamera
+import com.bhickta.faceattendance.vision.FaceObservation
+import com.bhickta.faceattendance.vision.HeadTurnDirection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -36,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private var faceCamera: FaceCamera? = null
     private var faceReady = false
     private var processing = false
+    private var activeChallenge: ActiveLivenessChallenge? = null
+    private var pendingDirection: AttendanceDirection? = null
 
     private val provisionDevice = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -88,10 +96,15 @@ class MainActivity : AppCompatActivity() {
         faceCamera = FaceCamera(
             activity = this,
             previewView = binding.cameraPreview,
-            onFaceCountChanged = { count ->
+            onFaceObserved = { observation ->
                 runOnUiThread {
-                    faceReady = count == 1
-                    binding.faceStatus.setText(if (count == 1) R.string.face_ready else R.string.no_face)
+                    faceReady = observation.faceCount == 1
+                    if (!processing) {
+                        binding.faceStatus.setText(
+                            if (observation.faceCount == 1) R.string.face_ready else R.string.no_face,
+                        )
+                    }
+                    processChallenge(observation)
                     updateButtons()
                 }
             },
@@ -128,7 +141,42 @@ class MainActivity : AppCompatActivity() {
     private fun punch(direction: AttendanceDirection) {
         if (processing || !faceReady) return
         processing = true
+        pendingDirection = direction
+        val challenge = ActiveLivenessChallenge(
+            if (Random.nextBoolean()) HeadTurnDirection.LEFT else HeadTurnDirection.RIGHT,
+        )
+        activeChallenge = challenge
         updateButtons()
+        binding.faceStatus.setText(R.string.look_straight)
+        lifecycleScope.launch {
+            delay(ACTIVE_CHALLENGE_TIMEOUT_MS)
+            if (activeChallenge === challenge) {
+                activeChallenge = null
+                pendingDirection = null
+                finishPunch(R.string.liveness_failed)
+            }
+        }
+    }
+
+    private fun processChallenge(observation: FaceObservation) {
+        val challenge = activeChallenge ?: return
+        when (val update = challenge.observe(observation.faceCount, observation.yawDegrees)) {
+            ChallengeUpdate.WaitingForNeutral -> binding.faceStatus.setText(R.string.look_straight)
+            is ChallengeUpdate.RequestTurn -> binding.faceStatus.setText(
+                if (update.direction == HeadTurnDirection.LEFT) R.string.turn_head_left
+                else R.string.turn_head_right,
+            )
+            ChallengeUpdate.WaitingForTurn -> Unit
+            ChallengeUpdate.Passed -> {
+                val direction = pendingDirection ?: return
+                activeChallenge = null
+                pendingDirection = null
+                captureForRecognition(direction)
+            }
+        }
+    }
+
+    private fun captureForRecognition(direction: AttendanceDirection) {
         binding.faceStatus.setText(R.string.recognizing)
         faceCamera?.capture(
             onSuccess = { bitmap ->
@@ -211,8 +259,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun finishPunch(message: Int) {
+        activeChallenge = null
+        pendingDirection = null
         binding.faceStatus.setText(message)
         processing = false
         updateButtons()
+    }
+
+    private companion object {
+        const val ACTIVE_CHALLENGE_TIMEOUT_MS = 7_000L
     }
 }
