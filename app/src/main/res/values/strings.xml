@@ -7,6 +7,12 @@
     <string name="face_ready">Face detected — select check in or check out</string>
     <string name="look_straight">Look straight at the camera</string>
     <string name="blink_now">Blink once to continue</string>
+    <string name="liveness_retry">Hold still — checking again</string>
+    <string name="day_summary">In %1$s · Out %2$s · Total %3$s</string>
+    <string name="day_summary_open">In %1$s · Total %2$s so far</string>
+    <string name="day_summary_out">Out %1$s · Total %2$s</string>
+    <string name="duration_hm">%1$dh %2$dm</string>
+    <string name="duration_m">%1$dm</string>
     <string name="not_device_owner">Development mode: this app is not Device Owner</string>
     <string name="device_owner_active">Managed kiosk mode active</string>
     <string name="enroll">Enroll person</string>

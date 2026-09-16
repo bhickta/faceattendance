@@ -16,6 +16,26 @@ class ActiveLivenessChallengeTest {
     }
 
     @Test
+    fun detectsBlinkWithLowerBaselineForGlasses() {
+        val challenge = ActiveLivenessChallenge()
+
+        assertEquals(ChallengeUpdate.RequestBlink, challenge.observe(1, 0f))
+        assertEquals(ChallengeUpdate.WaitingForBlink, challenge.observe(1, 0f, 0.6f))
+        assertEquals(ChallengeUpdate.WaitingForBlink, challenge.observe(1, 0f, 0.25f))
+        assertEquals(ChallengeUpdate.Passed, challenge.observe(1, 0f, 0.6f))
+    }
+
+    @Test
+    fun staysWaitingWhenEyeSignalTooWeak() {
+        val challenge = ActiveLivenessChallenge()
+
+        assertEquals(ChallengeUpdate.RequestBlink, challenge.observe(1, 0f))
+        assertEquals(ChallengeUpdate.WaitingForBlink, challenge.observe(1, 0f, 0.3f))
+        assertEquals(ChallengeUpdate.WaitingForBlink, challenge.observe(1, 0f, 0.1f))
+        assertEquals(ChallengeUpdate.WaitingForBlink, challenge.observe(1, 0f, 0.3f))
+    }
+
+    @Test
     fun skipBlinkPassesWithoutEyeClassification() {
         val challenge = ActiveLivenessChallenge()
 

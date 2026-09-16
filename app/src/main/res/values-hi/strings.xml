@@ -6,6 +6,12 @@
     <string name="face_ready">चेहरा मिला — अंदर या बाहर चुनें</string>
     <string name="look_straight">कैमरे की ओर सीधा देखें</string>
     <string name="blink_now">जारी रखने के लिए एक बार पलक झपकाएँ</string>
+    <string name="liveness_retry">स्थिर रहें — दोबारा जाँच हो रही है</string>
+    <string name="day_summary">आया %1$s · गया %2$s · कुल %3$s</string>
+    <string name="day_summary_open">आया %1$s · अब तक कुल %2$s</string>
+    <string name="day_summary_out">गया %1$s · कुल %2$s</string>
+    <string name="duration_hm">%1$d घं %2$d मि</string>
+    <string name="duration_m">%1$d मि</string>
     <string name="not_device_owner">डेवलपमेंट मोड: यह ऐप डिवाइस ओनर नहीं है</string>
     <string name="device_owner_active">प्रबंधित कियोस्क मोड सक्रिय है</string>
     <string name="enroll">व्यक्ति का नामांकन</string>

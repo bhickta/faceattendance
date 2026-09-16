@@ -55,6 +55,12 @@ abstract class AttendanceEventDao {
     )
     abstract suspend fun pending(limit: Int): List<AttendanceEventEntity>
 
+    @Query(
+        "SELECT * FROM attendance_events WHERE personId = :personId AND capturedAtEpochMillis >= :sinceMillis " +
+            "ORDER BY capturedAtEpochMillis ASC",
+    )
+    abstract suspend fun forPersonSince(personId: String, sinceMillis: Long): List<AttendanceEventEntity>
+
     @Query("SELECT COUNT(*) FROM attendance_events WHERE syncState = 'PENDING'")
     abstract suspend fun pendingCount(): Int
 

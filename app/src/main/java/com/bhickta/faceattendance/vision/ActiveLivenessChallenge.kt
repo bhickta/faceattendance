@@ -1,5 +1,8 @@
 package com.bhickta.faceattendance.vision
 
+import kotlin.math.max
+import kotlin.math.min
+
 sealed interface ChallengeUpdate {
     data object WaitingForNeutral : ChallengeUpdate
     data object RequestBlink : ChallengeUpdate
@@ -9,13 +12,17 @@ sealed interface ChallengeUpdate {
 
 /**
  * A neutral-then-blink challenge that rejects a single static photograph.
- * The blink step can be skipped with [skipBlink] when eye-open classification is unavailable.
+ *
+ * Eye-open probabilities are relative rather than fixed so the challenge still detects a blink
+ * through spectacles, where the model often reports a lower open value. [skipBlink] lets the
+ * caller proceed when the eye signal is too weak or unavailable.
  */
 class ActiveLivenessChallenge {
     private var neutralObserved = false
     private var blinkRequested = false
     private var eyesClosedSeen = false
     private var blinkObserved = false
+    private var baselineOpen = 0f
 
     fun skipBlink() {
         if (neutralObserved && !blinkObserved) {
@@ -46,9 +53,12 @@ class ActiveLivenessChallenge {
         if (!blinkObserved) {
             blinkRequested = true
             if (eyesOpenProbability != null) {
-                if (eyesOpenProbability <= EYES_CLOSED) {
+                baselineOpen = max(baselineOpen, eyesOpenProbability)
+                val closedThreshold = min(MAXIMUM_CLOSED, baselineOpen * CLOSED_FRACTION)
+                val openThreshold = max(MINIMUM_OPEN, baselineOpen * OPEN_FRACTION)
+                if (eyesOpenProbability <= closedThreshold) {
                     eyesClosedSeen = true
-                } else if (eyesClosedSeen && eyesOpenProbability >= EYES_OPEN) {
+                } else if (eyesClosedSeen && eyesOpenProbability >= openThreshold) {
                     blinkObserved = true
                     return ChallengeUpdate.Passed
                 }
@@ -60,7 +70,9 @@ class ActiveLivenessChallenge {
 
     private companion object {
         const val NEUTRAL_YAW = 8f
-        const val EYES_CLOSED = 0.3f
-        const val EYES_OPEN = 0.6f
+        const val MAXIMUM_CLOSED = 0.35f
+        const val CLOSED_FRACTION = 0.55f
+        const val MINIMUM_OPEN = 0.35f
+        const val OPEN_FRACTION = 0.8f
     }
 }

@@ -25,6 +25,7 @@ import com.bhickta.faceattendance.device.ClockTrust
 import com.bhickta.faceattendance.device.KioskController
 import com.bhickta.faceattendance.storage.AttendanceDatabase
 import com.bhickta.faceattendance.storage.DuplicatePunchException
+import com.bhickta.faceattendance.storage.SyncState
 import com.bhickta.faceattendance.sync.SyncScheduler
 import com.bhickta.faceattendance.ui.applyCompatInsets
 import com.bhickta.faceattendance.vision.BiometricEngine
@@ -39,6 +40,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -52,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private var blinkFallbackScheduled = false
     private var resultHideJob: Job? = null
     private var toneGenerator: ToneGenerator? = null
+    private var livenessAttempts = 0
 
     private val provisionDevice = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -159,6 +165,8 @@ class MainActivity : AppCompatActivity() {
         processing = true
         pendingDirection = direction
         blinkFallbackScheduled = false
+        livenessAttempts = 0
+        binding.daySummary.visibility = View.GONE
         hideResult()
         val challenge = ActiveLivenessChallenge()
         activeChallenge = challenge
@@ -235,13 +243,25 @@ class MainActivity : AppCompatActivity() {
         when (result) {
             is BiometricResult.Match -> savePunch(result, direction)
             BiometricResult.NoMatch -> offerSelfRegistration()
-            BiometricResult.LivenessFailed -> finishPunch(R.string.liveness_failed, ResultKind.ERROR)
+            BiometricResult.LivenessFailed -> retryOrFailLiveness(direction)
             is BiometricResult.Unavailable -> {
                 binding.faceStatus.text = getString(R.string.biometric_unavailable, result.reason)
                 showResult(ResultKind.WARNING, R.string.biometric_unavailable, result.reason)
                 processing = false
                 updateButtons()
             }
+        }
+    }
+
+    private suspend fun retryOrFailLiveness(direction: AttendanceDirection) {
+        if (livenessAttempts < MAX_LIVENESS_ATTEMPTS) {
+            livenessAttempts += 1
+            binding.faceStatus.setText(R.string.liveness_retry)
+            showResult(ResultKind.WARNING, R.string.liveness_retry, null, visibleMillis = 2_500L)
+            delay(300L)
+            captureForRecognition(direction)
+        } else {
+            finishPunch(R.string.liveness_failed, ResultKind.ERROR)
         }
     }
 
@@ -309,7 +329,12 @@ class MainActivity : AppCompatActivity() {
             binding.faceStatus.setText(
                 getString(R.string.attendance_saved, direction.name, match.displayName),
             )
-            showResult(ResultKind.SUCCESS, title, match.displayName)
+            val summary = loadDaySummary(match.evidence.personId)
+            if (summary != null) {
+                binding.daySummary.text = summary
+                binding.daySummary.visibility = View.VISIBLE
+            }
+            showResult(ResultKind.SUCCESS, title, summary ?: match.displayName)
         }.onFailure {
             val duplicate = it === DuplicatePunchException
             val message = if (duplicate) R.string.duplicate_punch else R.string.attendance_save_failed
@@ -318,6 +343,60 @@ class MainActivity : AppCompatActivity() {
         }
         processing = false
         updateButtons()
+    }
+
+    private suspend fun loadDaySummary(personId: String): String? {
+        val zone = ZoneId.systemDefault()
+        val startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val events = AttendanceDatabase.get(this)
+            .attendanceEventDao()
+            .forPersonSince(personId, startOfDay)
+            .filter { it.syncState != SyncState.REJECTED.name }
+        if (events.isEmpty()) return null
+
+        var totalMillis = 0L
+        var openIn: Long? = null
+        var firstIn: Long? = null
+        var lastOut: Long? = null
+        for (event in events) {
+            if (event.direction == AttendanceDirection.IN.name) {
+                if (openIn == null) {
+                    openIn = event.capturedAtEpochMillis
+                    if (firstIn == null) firstIn = event.capturedAtEpochMillis
+                }
+            } else {
+                lastOut = event.capturedAtEpochMillis
+                val opened = openIn
+                if (opened != null) {
+                    totalMillis += (event.capturedAtEpochMillis - opened).coerceAtLeast(0L)
+                    openIn = null
+                }
+            }
+        }
+        openIn?.let { totalMillis += (System.currentTimeMillis() - it).coerceAtLeast(0L) }
+
+        val timeFormat = DateTimeFormatter.ofPattern("hh:mm a")
+        fun format(millis: Long?): String =
+            millis?.let { Instant.ofEpochMilli(it).atZone(zone).format(timeFormat) }.orEmpty()
+        val total = formatDuration(totalMillis)
+        return when {
+            firstIn != null && lastOut != null && lastOut >= firstIn ->
+                getString(R.string.day_summary, format(firstIn), format(lastOut), total)
+            firstIn != null -> getString(R.string.day_summary_open, format(firstIn), total)
+            lastOut != null -> getString(R.string.day_summary_out, format(lastOut), total)
+            else -> null
+        }
+    }
+
+    private fun formatDuration(millis: Long): String {
+        val minutes = (millis / 60_000L).coerceAtLeast(0L)
+        val hours = minutes / 60
+        val remainder = minutes % 60
+        return if (hours > 0) {
+            getString(R.string.duration_hm, hours, remainder)
+        } else {
+            getString(R.string.duration_m, remainder)
+        }
     }
 
     private fun finishPunch(
@@ -438,7 +517,8 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val ACTIVE_CHALLENGE_TIMEOUT_MS = 25_000L
         const val BLINK_FALLBACK_MS = 8_000L
-        const val RESULT_VISIBLE_MS = 4_000L
+        const val RESULT_VISIBLE_MS = 6_000L
         const val SELF_REGISTRATION_VISIBLE_MS = 15_000L
+        const val MAX_LIVENESS_ATTEMPTS = 2
     }
 }
