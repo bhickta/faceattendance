@@ -12,6 +12,9 @@ This repository contains the Android kiosk and its separately packaged Frappe se
 - Native Kotlin Android application (Java provides no material runtime benefit here)
 - CameraX front-camera preview
 - On-device ML Kit face detection
+- On-device Intel face embeddings with face alignment and image-quality gates
+- Two-model MiniFASNet passive liveness plus randomized head-turn challenge
+- Keystore-encrypted, branch-aware offline biometric roster
 - Device Owner receiver and dedicated-device restrictions
 - Lock Task kiosk mode
 - Launch after boot
@@ -24,11 +27,11 @@ This repository contains the Android kiosk and its separately packaged Frappe se
 - English and Hindi kiosk resources
 - CI build workflow
 
-Face detection is intentionally not presented as face recognition. Debug builds contain a clearly
-labelled pipeline simulator. Release builds refuse biometric punches until a commercially licensed,
-qualified recognition/liveness engine is supplied through the `BiometricEngine` adapter. Enrollment,
-encrypted roster distribution, supervisor fallback, hardware qualification and field validation are
-still required before production use. See [the implementation roadmap](docs/ROADMAP.md).
+Both debug and release builds use the real offline biometric pipeline. Punches remain disabled until
+the kiosk has synchronized at least one compatible biometric template. Model files, artifact hashes,
+licenses, conversion details and the limits of their published metrics are recorded in
+[`docs/MODEL_CARD.md`](docs/MODEL_CARD.md). Supervisor fallback, supported-hardware qualification and
+representative field validation are still required before a production rollout.
 
 ## Components
 
@@ -93,6 +96,7 @@ setup notes are in [`server/face_attendance/README.md`](server/face_attendance/R
 - Avoid retaining or uploading raw face images unless strictly necessary.
 - Validate recognition thresholds against the real deployment population.
 - Add presentation-attack detection; blink-only checks are insufficient.
+- Treat the checked-in thresholds as pilot defaults; approve calibrated thresholds per hardware model.
 - Always provide a documented fallback and attendance dispute process.
 
 ## License

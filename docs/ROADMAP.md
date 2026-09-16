@@ -12,17 +12,17 @@
 
 ## Milestone 2 — recognition
 
-- [ ] Select a commercially usable embedding model and document its provenance
-- [ ] Face alignment and image-quality gates
+- [x] Select a commercially usable embedding model and document its provenance
+- [x] Face alignment and image-quality gates
 - [ ] Multi-frame enrollment
-- [ ] Encrypted embedding storage backed by Android Keystore
+- [x] Encrypted embedding storage backed by Android Keystore
 - [ ] Calibrate accept/reject thresholds using deployment data
 - [ ] Duplicate-person detection during enrollment
 
 ## Milestone 3 — liveness
 
-- [ ] Passive presentation-attack model
-- [ ] Randomized active challenge
+- [x] Passive presentation-attack model
+- [x] Randomized active challenge
 - [ ] Replay, printed-photo and screen-photo evaluation
 - [ ] Manual fallback and review workflow
 
@@ -36,7 +36,8 @@
 - [x] Clock-tampering evidence and seven-day authorization lease
 - [x] Frappe HR Employee Checkin projection
 - [x] Signed generic HTTPS webhook outbox
-- [ ] Roster completeness and Frappe Last Sync of Checkin coordination
+- [x] Branch-aware, versioned roster synchronization
+- [ ] Frappe Last Sync of Checkin coordination
 
 ## Milestone 5 — production hardening
 
@@ -49,7 +50,7 @@
 
 ## Release blocker
 
-The current code is an engineering foundation, not a production biometric product. Production release
-is blocked until a licensed SDK is integrated and certified on selected devices, enrollments and
-templates are distributed securely, supervisor exceptions are implemented, and representative field
-testing meets the documented accuracy and liveness thresholds.
+The open-weight offline engine and secure roster distribution are implemented. Production release
+remains blocked until multi-frame enrollment and revocation operations are completed, supervisor
+exceptions are implemented, privacy/legal review is recorded, supported devices are fixed, and
+representative field testing meets documented recognition and presentation-attack targets.
