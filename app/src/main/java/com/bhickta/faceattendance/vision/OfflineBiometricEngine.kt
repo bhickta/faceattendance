@@ -59,6 +59,9 @@ class OfflineBiometricEngine(context: Context) : BiometricEngine {
     override val isEnrollmentReady: Boolean
         get() = initialization.isSuccess
 
+    override val rosterSize: Int
+        get() = rosterStore.get()?.templates?.size ?: 0
+
     override suspend fun identify(bitmap: Bitmap): BiometricResult {
         val roster = rosterStore.get()
             ?: return BiometricResult.Unavailable("Biometric roster has not synchronized")

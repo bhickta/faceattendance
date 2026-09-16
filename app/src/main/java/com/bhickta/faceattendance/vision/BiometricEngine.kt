@@ -10,6 +10,10 @@ interface BiometricEngine : AutoCloseable {
     val isEnrollmentReady: Boolean
         get() = isReady
 
+    /** Number of templates in the local roster, or -1 when not applicable. */
+    val rosterSize: Int
+        get() = -1
+
     suspend fun identify(bitmap: Bitmap): BiometricResult
 
     suspend fun enroll(bitmap: Bitmap): EnrollmentResult =

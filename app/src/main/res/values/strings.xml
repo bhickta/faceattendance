@@ -8,6 +8,7 @@
     <string name="look_straight">Look straight at the camera</string>
     <string name="blink_now">Blink once to continue</string>
     <string name="liveness_retry">Hold still — checking again</string>
+    <string name="challenge_timeout">Timed out — look straight and try again</string>
     <string name="day_summary">In %1$s · Out %2$s · Total %3$s</string>
     <string name="day_summary_open">In %1$s · Total %2$s so far</string>
     <string name="day_summary_out">Out %1$s · Total %2$s</string>
@@ -21,6 +22,9 @@
     <string name="network_online_pending">Online · %1$d punch(es) syncing</string>
     <string name="network_offline">Offline — punches save here and sync later</string>
     <string name="network_offline_pending">Offline — %1$d punch(es) waiting to sync</string>
+    <string name="engine_ready">Ready · %1$d employee(s)</string>
+    <string name="engine_no_roster">No employees synced — tap Sync now</string>
+    <string name="engine_models_unavailable">Biometric models unavailable on this device</string>
     <string name="not_device_owner">Development mode: this app is not Device Owner</string>
     <string name="device_owner_active">Managed kiosk mode active</string>
     <string name="enroll">Enroll person</string>

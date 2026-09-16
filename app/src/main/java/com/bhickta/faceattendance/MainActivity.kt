@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -235,7 +236,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateButtons() {
         val configuration = DeviceConfigurationStore(this).get()
-        val enabled = faceReady && !processing && biometricEngine.isReady && configuration != null
+        val prepared = biometricEngine.isEnrollmentReady && configuration != null
+        val enabled = faceReady && !processing && prepared
         val mode = configuration?.directionMode ?: "SELECT"
         binding.checkInButton.visibility = if (mode == "OUT") View.GONE else View.VISIBLE
         binding.checkOutButton.visibility = if (mode == "IN") View.GONE else View.VISIBLE
@@ -247,6 +249,23 @@ class MainActivity : AppCompatActivity() {
             binding.checkOutButton.isEnabled = false
             binding.faceStatus.setText(R.string.authorization_expired)
         }
+        updateEngineStatus()
+    }
+
+    private fun updateEngineStatus() {
+        val text = when {
+            !biometricEngine.isEnrollmentReady -> getString(R.string.engine_models_unavailable)
+            biometricEngine.rosterSize <= 0 -> getString(R.string.engine_no_roster)
+            else -> getString(R.string.engine_ready, biometricEngine.rosterSize)
+        }
+        binding.engineStatus.text = text
+        val color = if (biometricEngine.isReady) R.color.success else R.color.warning
+        binding.engineStatus.setTextColor(ContextCompat.getColor(this, color))
+        Log.i(
+            TAG,
+            "buttons faceReady=$faceReady processing=$processing roster=${biometricEngine.rosterSize} " +
+                "enrollmentReady=${biometricEngine.isEnrollmentReady}",
+        )
     }
 
     private fun punch(direction: AttendanceDirection) {
@@ -266,7 +285,7 @@ class MainActivity : AppCompatActivity() {
             if (activeChallenge === challenge) {
                 activeChallenge = null
                 pendingDirection = null
-                finishPunch(R.string.liveness_failed)
+                finishPunch(R.string.challenge_timeout, ResultKind.WARNING)
             }
         }
     }
@@ -611,6 +630,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
+        const val TAG = "FaceAttendance"
         const val ACTIVE_CHALLENGE_TIMEOUT_MS = 25_000L
         const val BLINK_FALLBACK_MS = 8_000L
         const val RESULT_VISIBLE_MS = 6_000L
