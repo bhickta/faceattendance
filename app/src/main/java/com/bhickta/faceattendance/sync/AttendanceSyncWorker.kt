@@ -1,0 +1,50 @@
+package com.bhickta.faceattendance.sync
+
+import android.content.Context
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import com.bhickta.faceattendance.device.DeviceConfigurationStore
+import com.bhickta.faceattendance.device.DeviceKeyManager
+import com.bhickta.faceattendance.storage.AttendanceDatabase
+import com.bhickta.faceattendance.storage.SyncState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
+
+class AttendanceSyncWorker(
+    context: Context,
+    parameters: WorkerParameters,
+) : CoroutineWorker(context, parameters) {
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val configuration = DeviceConfigurationStore(applicationContext).get()
+            ?: return@withContext Result.success()
+        val dao = AttendanceDatabase.get(applicationContext).attendanceEventDao()
+        val events = dao.pending(AttendanceApiClient.MAX_BATCH_SIZE)
+        if (events.isEmpty()) return@withContext Result.success()
+
+        dao.recordAttempt(events.map { it.eventId }, System.currentTimeMillis())
+        try {
+            val acknowledgements = AttendanceApiClient(configuration, DeviceKeyManager()).submit(events)
+            val now = System.currentTimeMillis()
+            acknowledgements.forEach { acknowledgement ->
+                val state = when (acknowledgement.status) {
+                    "accepted", "duplicate" -> SyncState.ACKNOWLEDGED
+                    "quarantined" -> SyncState.QUARANTINED
+                    "rejected" -> SyncState.REJECTED
+                    else -> return@forEach
+                }
+                dao.resolve(acknowledgement.eventId, state.name, now, acknowledgement.reason)
+            }
+            dao.deleteAcknowledgedBefore(now - TimeUnit.DAYS.toMillis(30))
+            if (dao.pendingCount() > 0) Result.retry() else Result.success()
+        } catch (error: ApiException) {
+            if (error.statusCode in 400..499 && error.statusCode != 408 && error.statusCode != 429) {
+                Result.failure()
+            } else {
+                Result.retry()
+            }
+        } catch (_: Exception) {
+            Result.retry()
+        }
+    }
+}
