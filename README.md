@@ -41,6 +41,9 @@ representative field validation are still required before a production rollout.
 
 ## Development setup
 
+For first installation, ERPNext activation, on-phone employee enrollment and attendance use, follow
+the [quick-start guide](docs/QUICKSTART.md).
+
 Requirements:
 
 - Android Studio with Android SDK 35

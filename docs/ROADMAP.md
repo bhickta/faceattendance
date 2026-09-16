@@ -14,10 +14,10 @@
 
 - [x] Select a commercially usable embedding model and document its provenance
 - [x] Face alignment and image-quality gates
-- [ ] Multi-frame enrollment
+- [x] Consent-bound, one-time-token multi-frame enrollment
 - [x] Encrypted embedding storage backed by Android Keystore
 - [ ] Calibrate accept/reject thresholds using deployment data
-- [ ] Duplicate-person detection during enrollment
+- [x] Duplicate-person detection during enrollment
 
 ## Milestone 3 — liveness
 
